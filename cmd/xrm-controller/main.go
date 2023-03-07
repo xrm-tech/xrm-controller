@@ -20,8 +20,7 @@ var (
 	users        []string
 	debug        bool
 
-	logger = zerolog.New(os.Stdout)
-	app    *fiber.App
+	app *fiber.App
 )
 
 func main() {
@@ -51,6 +50,7 @@ func main() {
 		os.Exit(1)
 	}
 
+	xrm.Cfg.Logger = zerolog.New(os.Stdout)
 	xrm.Cfg.Users = make(map[string]string)
 	for _, user := range users {
 		username, password, _ := strings.Cut(user, ":")

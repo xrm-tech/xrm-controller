@@ -9,6 +9,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/rs/zerolog"
 	xrm "github.com/xrm-tech/xrm-controller/app/xrm-controller"
 	"github.com/xrm-tech/xrm-controller/pkg/tests"
 	"github.com/xrm-tech/xrm-controller/pkg/utils"
@@ -29,8 +30,9 @@ func TestCleanup(t *testing.T) {
 	fileName := path.Join(xrm.Cfg.OVirtStoreDir, "test/disaster_recovery_vars.yml")
 
 	// create and start *fiber.App instance
+	xrm.Cfg.Logger = zerolog.New(os.Stdout)
 	xrm.Cfg.Users = map[string]string{"test1": "password1", "test2": "password2"}
-	app := xrm.RouterInit(&logger)
+	app := xrm.RouterInit()
 	var wg sync.WaitGroup
 	wg.Add(1)
 	go func() {

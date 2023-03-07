@@ -23,6 +23,7 @@ clean:
 
 build: FORCE
 	CGO_ENABLED=0 GO111MODULE=on ${GO} build -ldflags '-X main.BuildVersion=$(VERSION)' ${PWD}/cmd/xrm-controller
+	CGO_ENABLED=0 GO111MODULE=on ${GO} build -ldflags '-X main.BuildVersion=$(VERSION)' ${PWD}/cmd/xrm-cli
 
 ## format: Applies Go formatting to code.
 format:

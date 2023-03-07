@@ -1,6 +1,8 @@
-package xrmcontroller
+package utils
 
-import "github.com/go-playground/validator/v10"
+import (
+	"github.com/go-playground/validator/v10"
+)
 
 type IError struct {
 	Field  string
@@ -11,10 +13,6 @@ type IError struct {
 type ValidateStatus struct {
 	Message string
 	Fields  []IError
-}
-
-type Status struct {
-	Message string
 }
 
 func ValidatorError(vErr validator.ValidationErrors) ValidateStatus {

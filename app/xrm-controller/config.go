@@ -1,7 +1,6 @@
 package xrmcontroller
 
 import (
-	"github.com/go-playground/validator/v10"
 	"github.com/goccy/go-json"
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/basicauth"
@@ -16,21 +15,21 @@ type Config struct {
 	TLSCert       string
 	TLSKey        string
 	Users         map[string]string
+	Logger        zerolog.Logger
 }
 
 var (
-	Cfg      Config
-	Validate = validator.New()
+	Cfg Config
 )
 
-func RouterInit(logger *zerolog.Logger) (app *fiber.App) {
+func RouterInit() (app *fiber.App) {
 	app = fiber.New(fiber.Config{
 		JSONEncoder: json.Marshal,
 		JSONDecoder: Decode,
 	})
 
 	app.Use(fiberlog.New(fiberlog.Config{
-		Logger: logger,
+		Logger: &Cfg.Logger,
 		Next: func(ctx *fiber.Ctx) bool {
 			return false
 		},
@@ -41,8 +40,8 @@ func RouterInit(logger *zerolog.Logger) (app *fiber.App) {
 	app.Use(basicauth.New(basicauth.Config{Users: Cfg.Users}))
 
 	// OVirt
-	app.Get("/ovirt/cleanup/:name<regex([a-zA-Z_\\-0-9]+)>", oVirtCleanup)
-	app.Post("/ovirt/generate/:name<regex([a-zA-Z_\\-0-9]+)>", oVirtGenerate)
+	app.Get("/ovirt/cleanup/:name", oVirtCleanup)
+	app.Post("/ovirt/generate/:name", oVirtGenerate)
 
 	return
 }

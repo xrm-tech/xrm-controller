@@ -11,7 +11,7 @@ import (
 	"github.com/xrm-tech/xrm-controller/ovirt"
 )
 
-func DoGenerate(request string, siteConfig *ovirt.Site, username, password string, wantStatus int, wantInResp string) error {
+func DoGenerate(request string, siteConfig *ovirt.GenerateVars, username, password string, wantStatus int, wantInResp string) error {
 	var (
 		r           io.Reader
 		contentType string

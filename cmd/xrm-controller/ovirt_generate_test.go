@@ -7,6 +7,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/rs/zerolog"
 	xrm "github.com/xrm-tech/xrm-controller/app/xrm-controller"
 	"github.com/xrm-tech/xrm-controller/ovirt"
 	"github.com/xrm-tech/xrm-controller/pkg/tests"
@@ -27,8 +28,9 @@ func TestGenerateValidate(t *testing.T) {
 	// fileName := path.Join(ovirtStoreDir, "test/disaster_recovery_vars.yml")
 
 	// create and start *fiber.App instance
+	xrm.Cfg.Logger = zerolog.New(os.Stdout)
 	xrm.Cfg.Users = map[string]string{"test1": "password1", "test2": "password2"}
-	app := xrm.RouterInit(&logger)
+	app := xrm.RouterInit()
 	var wg sync.WaitGroup
 	wg.Add(1)
 	go func() {
@@ -48,8 +50,9 @@ func TestGenerateValidate(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	var siteConfig ovirt.Site
-	siteConfig.Url = "http://127.0.0.1:8443/ovirt-engine/api"
+	siteConfig := ovirt.GenerateVars{
+		PrimaryUrl: "http://127.0.0.1:8443/ovirt-engine/api",
+	}
 	// run without parameters
 	if err := tests.DoGenerate(request, &siteConfig, "test2", "password2", http.StatusBadRequest, "validation failed"); err != nil {
 		t.Fatal(err)
