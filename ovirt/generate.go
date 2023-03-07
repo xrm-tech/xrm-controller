@@ -18,10 +18,11 @@ var (
 	ErrDirAlreadyExist = errors.New("dir already exist")
 	ErrVarFileNotExist = errors.New("var file not exist")
 	// ansible
-	ansibleDrTag      = "generate_mapping"
-	ansibleDrPlaybook = "dr_generate.yml"
-	ansibleDrVarsFile = "disaster_recovery_vars.yml"
-	ansibleDrPwdFile  = "ovirt_passwords.yml"
+	ansibleDrTag         = "generate_mapping"
+	ansibleDrPlaybook    = "dr_generate.yml"
+	ansibleDrVarsFileTpl = "disaster_recovery_vars.yml.tpl"
+	ansibleDrVarsFile    = "disaster_recovery_vars.yml"
+	ansibleDrPwdFile     = "ovirt_passwords.yml"
 )
 
 func validateOvirtCon(url string, insecure bool, caFile, username, password string) error {
@@ -80,6 +81,7 @@ func (g GenerateVars) Generate(name, dir string) (out string, err error) {
 
 	ansiblePlayFile := path.Join(dir, ansibleDrPlaybook)
 	ansibleVarFile := path.Join(dir, ansibleDrVarsFile)
+	ansibleVarFileTpl := ansibleVarFile + ".tpl"
 	primaryCaFile := path.Join(dir, "primary.ca")
 	secondaryCaFile := path.Join(dir, "secondary.ca")
 
@@ -107,7 +109,7 @@ func (g GenerateVars) Generate(name, dir string) (out string, err error) {
 
 	// TODO: reduce verbose ?
 	if out, err = utils.ExecCmd(time.Minute*2, "ansible-playbook", ansiblePlayFile, "-t", ansibleDrTag, "-e", extraVars, "-vvvvv"); err == nil {
-		if !utils.FileExists(ansibleVarFile) {
+		if !utils.FileExists(ansibleVarFileTpl) {
 			err = ErrVarFileNotExist
 		}
 	}
