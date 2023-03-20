@@ -1,10 +1,12 @@
 package ovirt
 
 import (
+	"bufio"
 	"bytes"
 	"errors"
 	"os"
 	"path"
+	"strings"
 	"time"
 
 	"github.com/containers/storage/pkg/lockfile"
@@ -105,7 +107,7 @@ func (g GenerateVars) Generate(name, dir string) (out string, err error) {
 	}
 
 	extraVars := "site=" + g.PrimaryUrl + " username=" + g.PrimaryUsername + " password=" + g.PrimaryPassword +
-		" ca=" + primaryCaFile + " var_file=" + ansibleVarFile
+		" ca=" + primaryCaFile + " var_file=" + ansibleVarFileTpl
 
 	// TODO: reduce verbose ?
 	if out, err = utils.ExecCmd(time.Minute*2, "ansible-playbook", ansiblePlayFile, "-t", ansibleDrTag, "-e", extraVars, "-vvvvv"); err == nil {
@@ -113,6 +115,9 @@ func (g GenerateVars) Generate(name, dir string) (out string, err error) {
 			err = ErrVarFileNotExist
 		}
 	}
+
+	err = g.writeAnsibleVarsFile(ansibleVarFileTpl, ansibleVarFile)
+
 	return
 }
 
@@ -134,4 +139,72 @@ func (g GenerateVars) writeAnsiblePwdDile(pwdFile string) error {
 	buf.WriteString(g.SecondaryPassword)
 	_, err = f.Write(buf.Bytes())
 	return err
+}
+
+func (g GenerateVars) writeAnsibleVarsFile(template, varFile string) (err error) {
+	var in, out *os.File
+	in, err = os.Open(template)
+	if err != nil {
+		return err
+	}
+	defer in.Close()
+
+	out, err = os.OpenFile(varFile, os.O_RDWR|os.O_CREATE, 0644)
+	if err != nil {
+		return err
+	}
+	defer out.Close()
+	writer := bufio.NewWriter(out)
+
+	scanner := bufio.NewScanner(in)
+	// optionally, resize scanner's capacity for lines over 64K, see next example
+	for scanner.Scan() {
+		s := scanner.Text()
+		if strings.HasPrefix(s, "dr_sites_secondary_url: ") {
+			if _, err = writer.WriteString("dr_sites_secondary_url: "); err != nil {
+				return
+			}
+			if _, err = writer.WriteString(g.SecondaryUrl); err != nil {
+				return
+			}
+			if err = writer.WriteByte('\n'); err != nil {
+				return
+			}
+		} else if (strings.HasPrefix(s, "dr_sites_secondary_") || strings.HasPrefix(s, "  dr_secondary_") ||
+			strings.HasPrefix(s, "  secondary_")) && strings.Contains(s, ": # ") {
+			if k, v, ok := strings.Cut(s, ": # "); ok {
+				if _, err = writer.WriteString(k); err != nil {
+					return
+				}
+				if _, err = writer.WriteString(": "); err != nil {
+					return
+				}
+				if _, err = writer.WriteString(v); err != nil {
+					return
+				}
+				if err = writer.WriteByte('\n'); err != nil {
+					return
+				}
+			} else {
+				if _, err = writer.WriteString(s); err != nil {
+					return
+				}
+				if err = writer.WriteByte('\n'); err != nil {
+					return
+				}
+			}
+		} else {
+			if _, err = writer.WriteString(s); err != nil {
+				return
+			}
+			if err = writer.WriteByte('\n'); err != nil {
+				return
+			}
+		}
+	}
+	if err = writer.Flush(); err != nil {
+		return
+	}
+
+	return scanner.Err()
 }

@@ -7,6 +7,7 @@ require (
 	github.com/go-playground/validator/v10 v10.11.2
 	github.com/goccy/go-json v0.10.0
 	github.com/gofiber/fiber/v2 v2.40.1
+	github.com/google/go-cmp v0.5.6
 	github.com/msaf1980/fiberlog v0.0.3
 	github.com/msaf1980/go-clipper v0.0.24
 	github.com/otiai10/copy v1.9.0
