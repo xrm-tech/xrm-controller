@@ -31,13 +31,15 @@ func main() {
 	// create a new command registry
 	registry := clipper.NewRegistry("xrm-cli")
 
-	cleanupCmd, _ := registry.Register("cleanup", "cleanup") // cleanup command
+	// cleanup command
+	cleanupCmd, _ := registry.Register("cleanup", "cleanup")
 	cleanupCmd.AddString("dir", "d", "/var/lib/xrm-controller", &storeDir, "dir")
 	cleanupCmd.AddString("name", "n", "", &name, "name")
 	cleanupCmd.AddValue("type", "t", newXrmType(xrmOVirt, &typ), false, "type")
 	cleanupCmd.AddFlag("verbose", "v", &verbose, "debug logging")
 
-	generateCmd, _ := registry.Register("generate", "generate") // generate command
+	// generate command
+	generateCmd, _ := registry.Register("generate", "generate")
 	generateCmd.AddString("dir", "d", "/var/lib/xrm-controller", &storeDir, "dir")
 	generateCmd.AddString("name", "n", "", &name, "name")
 	generateCmd.AddValue("type", "t", newXrmType(xrmOVirt, &typ), false, "type")
@@ -50,6 +52,20 @@ func main() {
 	generateCmd.AddString("s_url", "", "", &sitesConfig.SecondaryUrl, "secondary site url").AttachEnv("XRM_SECONDARY_URL")
 	generateCmd.AddString("s_username", "", "", &sitesConfig.SecondaryUsername, "secondary site username").AttachEnv("XRM_SECONDARY_USERNAME")
 	generateCmd.AddString("s_password", "", "", &sitesConfig.SecondaryPassword, "secondary site username").AttachEnv("XRM_SECONDARY_PASSWORD")
+
+	// failover command
+	failoverCmd, _ := registry.Register("failover", "failover")
+	failoverCmd.AddString("dir", "d", "/var/lib/xrm-controller", &storeDir, "dir")
+	failoverCmd.AddString("name", "n", "", &name, "name")
+	failoverCmd.AddValue("type", "t", newXrmType(xrmOVirt, &typ), false, "type")
+	failoverCmd.AddFlag("verbose", "v", &verbose, "debug logging")
+
+	// failback command
+	failbackCmd, _ := registry.Register("failover", "failover")
+	failbackCmd.AddString("dir", "d", "/var/lib/xrm-controller", &storeDir, "dir")
+	failbackCmd.AddString("name", "n", "", &name, "name")
+	failbackCmd.AddValue("type", "t", newXrmType(xrmOVirt, &typ), false, "type")
+	failbackCmd.AddFlag("verbose", "v", &verbose, "debug logging")
 
 	commandName, err := registry.Parse(os.Args[1:])
 	if err != nil {
@@ -96,9 +112,37 @@ func main() {
 				os.Exit(1)
 			} else if out, err = sitesConfig.Generate(name, oVirtStoreDir); err == nil {
 				if out != "" {
+					fmt.Fprintln(os.Stdout, out)
+				}
+				fmt.Fprintln(os.Stdout, "success")
+			} else {
+				if out != "" {
 					fmt.Fprintln(os.Stderr, out)
 				}
-				fmt.Fprintln(os.Stderr, "success")
+				fmt.Fprintln(os.Stderr, err.Error())
+				os.Exit(1)
+			}
+		case "failover":
+			var out string
+			if out, err = ovirt.Failover(oVirtStoreDir, name); err == nil {
+				if out != "" {
+					fmt.Fprintln(os.Stdout, out)
+				}
+				fmt.Fprintln(os.Stdout, "success")
+			} else {
+				if out != "" {
+					fmt.Fprintln(os.Stderr, out)
+				}
+				fmt.Fprintln(os.Stderr, err.Error())
+				os.Exit(1)
+			}
+		case "failback":
+			var out string
+			if out, err = ovirt.Failback(oVirtStoreDir, name); err == nil {
+				if out != "" {
+					fmt.Fprintln(os.Stdout, out)
+				}
+				fmt.Fprintln(os.Stdout, "success")
 			} else {
 				if out != "" {
 					fmt.Fprintln(os.Stderr, out)

@@ -17,14 +17,17 @@ import (
 )
 
 var (
-	ErrDirAlreadyExist = errors.New("dir already exist")
-	ErrVarFileNotExist = errors.New("var file not exist")
+	ErrTemplateDirNotExist = errors.New("ovirt template dir not exist")
+	ErrDirAlreadyExist     = errors.New("dir already exist")
+	ErrVarFileNotExist     = errors.New("var file not exist")
 	// ansible
-	ansibleDrTag         = "generate_mapping"
-	ansibleDrPlaybook    = "dr_generate.yml"
-	ansibleDrVarsFileTpl = "disaster_recovery_vars.yml.tpl"
-	ansibleDrVarsFile    = "disaster_recovery_vars.yml"
-	ansibleDrPwdFile     = "ovirt_passwords.yml"
+	ansibleDrTag            = "generate_mapping"
+	ansibleGeneratePlaybook = "dr_generate.yml"
+	ansibleFailoverPlaybook = "dr_failover.yml"
+	ansibleFailbackPlaybook = "dr_failback.yml"
+	ansibleDrVarsFileTpl    = "disaster_recovery_vars.yml.tpl"
+	ansibleDrVarsFile       = "disaster_recovery_vars.yml"
+	ansibleDrPwdFile        = "ovirt_passwords.yml"
 )
 
 func validateOvirtCon(url string, insecure bool, caFile, username, password string) error {
@@ -81,7 +84,9 @@ func (g GenerateVars) Generate(name, dir string) (out string, err error) {
 	lock.Lock()
 	defer lock.Unlock()
 
-	ansiblePlayFile := path.Join(dir, ansibleDrPlaybook)
+	ansibleGeneratePlaybook := path.Join(dir, ansibleGeneratePlaybook)
+	ansibleFailoverPlaybook := path.Join(dir, ansibleFailoverPlaybook)
+	ansibleFailbackPlaybook := path.Join(dir, ansibleFailbackPlaybook)
 	ansibleVarFile := path.Join(dir, ansibleDrVarsFile)
 	ansibleVarFileTpl := ansibleVarFile + ".tpl"
 	primaryCaFile := path.Join(dir, "primary.ca")
@@ -110,13 +115,17 @@ func (g GenerateVars) Generate(name, dir string) (out string, err error) {
 		" ca=" + primaryCaFile + " var_file=" + ansibleVarFileTpl
 
 	// TODO: reduce verbose ?
-	if out, err = utils.ExecCmd(time.Minute*2, "ansible-playbook", ansiblePlayFile, "-t", ansibleDrTag, "-e", extraVars, "-vvvvv"); err == nil {
-		if !utils.FileExists(ansibleVarFileTpl) {
+	if out, err = utils.ExecCmd(time.Minute*2, "ansible-playbook", ansibleGeneratePlaybook, "-t", ansibleDrTag, "-e", extraVars, "-vvvvv"); err == nil {
+		if utils.FileExists(ansibleVarFileTpl) {
+			err = g.writeAnsibleVarsFile(ansibleVarFileTpl, ansibleVarFile)
+		} else {
 			err = ErrVarFileNotExist
 		}
 	}
 
-	err = g.writeAnsibleVarsFile(ansibleVarFileTpl, ansibleVarFile)
+	if err == nil {
+		err = g.writeAnsibleFailbackFile(ansibleFailoverPlaybook, ansibleFailbackPlaybook)
+	}
 
 	return
 }
@@ -157,7 +166,6 @@ func (g GenerateVars) writeAnsibleVarsFile(template, varFile string) (err error)
 	writer := bufio.NewWriter(out)
 
 	scanner := bufio.NewScanner(in)
-	// optionally, resize scanner's capacity for lines over 64K, see next example
 	for scanner.Scan() {
 		s := scanner.Text()
 		if strings.HasPrefix(s, "dr_sites_secondary_url: ") {
@@ -192,6 +200,48 @@ func (g GenerateVars) writeAnsibleVarsFile(template, varFile string) (err error)
 				if err = writer.WriteByte('\n'); err != nil {
 					return
 				}
+			}
+		} else {
+			if _, err = writer.WriteString(s); err != nil {
+				return
+			}
+			if err = writer.WriteByte('\n'); err != nil {
+				return
+			}
+		}
+	}
+	if err = writer.Flush(); err != nil {
+		return
+	}
+
+	return scanner.Err()
+}
+
+func (g GenerateVars) writeAnsibleFailbackFile(failover, failback string) (err error) {
+	var in, out *os.File
+	in, err = os.Open(failover)
+	if err != nil {
+		return err
+	}
+	defer in.Close()
+
+	out, err = os.OpenFile(failback, os.O_RDWR|os.O_CREATE, 0644)
+	if err != nil {
+		return err
+	}
+	defer out.Close()
+	writer := bufio.NewWriter(out)
+
+	scanner := bufio.NewScanner(in)
+	for scanner.Scan() {
+		s := scanner.Text()
+		if strings.HasPrefix(s, "     dr_source_map: ") {
+			if _, err = writer.WriteString("     dr_source_map: secondary\n"); err != nil {
+				return
+			}
+		} else if strings.HasPrefix(s, "     dr_target_host: ") {
+			if _, err = writer.WriteString("     dr_target_host: primary\n"); err != nil {
+				return
 			}
 		} else {
 			if _, err = writer.WriteString(s); err != nil {

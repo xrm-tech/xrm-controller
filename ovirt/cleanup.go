@@ -7,7 +7,7 @@ import (
 	"github.com/xrm-tech/xrm-controller/pkg/utils"
 )
 
-// Cleanup delete ovirt/{name}
+// Cleanup delete {dir}/{name}
 func Cleanup(name, dir string) (err error) {
 	if !validateName(name) {
 		return ErrNameInvalid

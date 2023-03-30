@@ -12,6 +12,7 @@ import (
 	"github.com/rs/zerolog/log"
 
 	xrm "github.com/xrm-tech/xrm-controller/app/xrm-controller"
+	xrmcontroller "github.com/xrm-tech/xrm-controller/app/xrm-controller"
 	"github.com/xrm-tech/xrm-controller/pkg/utils"
 )
 
@@ -73,6 +74,7 @@ func main() {
 
 	xrm.Cfg.OVirtStoreDir = path.Join(xrm.Cfg.StoreDir, "ovirt")
 
+	app := xrmcontroller.RouterInit()
 	// TODO: implement ssl, basic auth and ip acl
 	if xrm.Cfg.TLSCert != "" && xrm.Cfg.TLSKey == "" {
 		log.Fatal().Err(app.ListenTLS(xrm.Cfg.Listen, xrm.Cfg.TLSCert, xrm.Cfg.TLSKey))

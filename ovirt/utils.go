@@ -1,7 +1,6 @@
 package ovirt
 
 import (
-	"errors"
 	"io"
 	"net/http"
 	"os"
@@ -14,8 +13,7 @@ import (
 )
 
 var (
-	ErrNameInvalid = errors.New("name is invalid")
-	Validate       = validator.New()
+	Validate = validator.New()
 )
 
 type HttpError struct {
@@ -62,3 +60,10 @@ var nameRe = regexp.MustCompile(`^[a-zA-Z_\-0-9]+$`)
 func validateName(name string) bool {
 	return name != "template" && nameRe.MatchString(name)
 }
+
+// func Validate(dir string) error {
+// 	template := path.Join(dir, "template")
+// 	if !utils.DirExists(template) {
+// 		return ErrTemplateDirNotExist
+// 	}
+// }

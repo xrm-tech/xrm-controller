@@ -42,6 +42,8 @@ func RouterInit() (app *fiber.App) {
 	// OVirt
 	app.Get("/ovirt/cleanup/:name", oVirtCleanup)
 	app.Post("/ovirt/generate/:name", oVirtGenerate)
+	app.Get("/ovirt/failover/:name", oVirtFailover)
+	app.Get("/ovirt/failback/:name", oVirtFailback)
 
 	return
 }

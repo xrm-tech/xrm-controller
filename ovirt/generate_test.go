@@ -47,3 +47,40 @@ func TestGenerateVars_writeAnsibleVarsFile(t *testing.T) {
 		t.Fatalf("GenerateVars.writeAnsibleVarsFile() = %s", cmp.Diff(want, got))
 	}
 }
+
+func TestGenerateVars_writeAnsibleFailbackFile(t *testing.T) {
+	g := GenerateVars{
+		SecondaryUrl: "https://saengine2.localdomain/ovirt-engine/api",
+	}
+	f, err := os.CreateTemp("", "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	failbackFile := f.Name()
+	os.Remove(failbackFile)
+
+	_, filename, _, _ := runtime.Caller(0)
+	testDir := path.Join(path.Dir(filename), "tests")
+	failover := path.Join(testDir, "dr_failover.yml")
+	failback := path.Join(testDir, "dr_failback.yml")
+
+	defer os.Remove(failbackFile)
+
+	if err := g.writeAnsibleFailbackFile(failover, failbackFile); err != nil {
+		t.Fatalf("GenerateVars.writeAnsibleFailbackFile() error = %v", err)
+	}
+
+	b, err := os.ReadFile(failbackFile)
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := strings.Split(string(b), "\n")
+	b, err = os.ReadFile(failback)
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := strings.Split(string(b), "\n")
+	if !reflect.DeepEqual(got, want) {
+		t.Fatalf("GenerateVars.writeAnsibleFailbackFile() = %s", cmp.Diff(want, got))
+	}
+}

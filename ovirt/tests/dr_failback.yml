@@ -1,0 +1,14 @@
+---
+- name: oVirt Failover
+  hosts: localhost
+  connection: local
+  vars:
+     dr_target_host: primary
+     dr_source_map: secondary
+  vars_files:
+     - disaster_recovery_vars.yml
+     - ovirt_passwords.yml
+  roles:
+     - disaster_recovery
+  collections:
+     - ovirt.ovirt
