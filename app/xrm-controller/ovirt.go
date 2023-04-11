@@ -9,8 +9,8 @@ import (
 	"github.com/xrm-tech/xrm-controller/pkg/utils"
 )
 
-func oVirtCleanup(c *fiber.Ctx) error {
-	if err := ovirt.Cleanup(c.Params("name"), Cfg.OVirtStoreDir); err != nil {
+func oVirtDelete(c *fiber.Ctx) error {
+	if err := ovirt.Delete(c.Params("name"), Cfg.OVirtStoreDir); err != nil {
 		return fiber.NewError(http.StatusInternalServerError, err.Error())
 	}
 	return c.Status(http.StatusOK).SendString("success")

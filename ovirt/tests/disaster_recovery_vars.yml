@@ -6,7 +6,7 @@ dr_sites_primary_ca_file: /home/user/go/src/github.com/xrm-tech/xrm-controller/o
 # Please fill in the following properties for the secondary site: 
 dr_sites_secondary_url: https://saengine2.localdomain/ovirt-engine/api
 dr_sites_secondary_username: admin@internal
-dr_sites_secondary_ca_file: /var/lib/xrm-controller/ovirt/test/primary.ca
+dr_sites_secondary_ca_file: /var/lib/xrm-controller/ovirt/test/secondary.ca
 
 dr_import_storages:
 - dr_domain_type: nfs

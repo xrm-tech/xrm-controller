@@ -99,11 +99,14 @@ func (g GenerateVars) Generate(name, dir string) (out string, err error) {
 	if err = saveCaFile(g.PrimaryUrl, primaryCaFile); err != nil {
 		return
 	}
-	if err = saveCaFile(g.SecondaryUrl, secondaryCaFile); err != nil {
+	if err = validateOvirtCon(g.PrimaryUrl, false, primaryCaFile, g.PrimaryUsername, g.PrimaryPassword); err != nil {
 		return
 	}
 
-	if err = validateOvirtCon(g.PrimaryUrl, false, primaryCaFile, g.PrimaryUsername, g.PrimaryPassword); err != nil {
+	if err = saveCaFile(g.SecondaryUrl, secondaryCaFile); err != nil {
+		return
+	}
+	if err = validateOvirtCon(g.SecondaryUrl, false, secondaryCaFile, g.SecondaryUsername, g.SecondaryPassword); err != nil {
 		return
 	}
 
@@ -187,7 +190,11 @@ func (g GenerateVars) writeAnsibleVarsFile(template, varFile string) (err error)
 				if _, err = writer.WriteString(": "); err != nil {
 					return
 				}
-				if _, err = writer.WriteString(v); err != nil {
+				if strings.HasPrefix(s, "dr_sites_secondary_ca_file: ") {
+					if _, err = writer.WriteString(strings.Replace(v, "primary.ca", "secondary.ca", 1)); err != nil {
+						return
+					}
+				} else if _, err = writer.WriteString(v); err != nil {
 					return
 				}
 				if err = writer.WriteByte('\n'); err != nil {

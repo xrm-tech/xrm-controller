@@ -40,7 +40,7 @@ func RouterInit() (app *fiber.App) {
 	app.Use(basicauth.New(basicauth.Config{Users: Cfg.Users}))
 
 	// OVirt
-	app.Get("/ovirt/cleanup/:name", oVirtCleanup)
+	app.Get("/ovirt/delete/:name", oVirtDelete)
 	app.Post("/ovirt/generate/:name", oVirtGenerate)
 	app.Get("/ovirt/failover/:name", oVirtFailover)
 	app.Get("/ovirt/failback/:name", oVirtFailback)

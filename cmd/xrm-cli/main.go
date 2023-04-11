@@ -95,8 +95,8 @@ func main() {
 	case xrmOVirt:
 		oVirtStoreDir := path.Join(storeDir, "ovirt")
 		switch commandName {
-		case "cleanup":
-			if err = ovirt.Cleanup(oVirtStoreDir, name); err == nil {
+		case "delete":
+			if err = ovirt.Delete(oVirtStoreDir, name); err == nil {
 				fmt.Fprintln(os.Stderr, "success")
 			} else {
 				fmt.Fprintln(os.Stderr, err.Error())

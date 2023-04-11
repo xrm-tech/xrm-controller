@@ -15,7 +15,7 @@ import (
 	"github.com/xrm-tech/xrm-controller/pkg/utils"
 )
 
-func TestCleanup(t *testing.T) {
+func TestDelete(t *testing.T) {
 	var err error
 
 	if xrm.Cfg.Listen, err = tests.GetFreeLocalAddr(); err != nil {
@@ -26,7 +26,7 @@ func TestCleanup(t *testing.T) {
 	}
 	defer os.RemoveAll(xrm.Cfg.StoreDir)
 
-	request := "http://" + xrm.Cfg.Listen + "/ovirt/cleanup/test"
+	request := "http://" + xrm.Cfg.Listen + "/ovirt/delete/test"
 	fileName := path.Join(xrm.Cfg.OVirtStoreDir, "test/disaster_recovery_vars.yml")
 
 	// create and start *fiber.App instance

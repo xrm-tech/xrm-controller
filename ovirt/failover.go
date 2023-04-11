@@ -8,7 +8,9 @@ import (
 )
 
 var (
-	drCleanTag = "clean_engine"
+	drCleanTag    = "clean_engine"
+	drFailoverTag = "fail_over"
+	drFailbackTag = "fail_back"
 )
 
 // Failover initiate failover for {dir}/{name}
@@ -25,7 +27,7 @@ func Failover(name, dir string) (out string, err error) {
 	playbook := path.Join(dir, ansibleFailoverPlaybook)
 
 	// TODO: reduce verbose ?
-	out, err = utils.ExecCmd(time.Minute*2, "ansible-playbook", playbook, "-t", drCleanTag, "-vvvvv")
+	out, err = utils.ExecCmd(time.Minute*2, "ansible-playbook", playbook, "-t", drFailoverTag, "-vvvvv")
 
 	return string(out), err
 }
@@ -44,5 +46,24 @@ func Failback(name, dir string) (out string, err error) {
 	playbook := path.Join(dir, ansibleFailbackPlaybook)
 
 	// TODO: reduce verbose ?
-	return utils.ExecCmd(time.Minute*2, "ansible-playbook", playbook, "-t", drCleanTag, "-vvvvv")
+	return utils.ExecCmd(time.Minute*2, "ansible-playbook", playbook, "-t", drFailbackTag, "-vvvvv")
+}
+
+// Cleanup cleanup for {dir}/{name}
+func Cleanup(name, dir string) (out string, err error) {
+	if !validateName(name) {
+		return "", ErrNameInvalid
+	}
+
+	dir = path.Join(dir, name)
+	if !utils.DirExists(dir) {
+		return "", ErrDirNotExist
+	}
+
+	playbook := path.Join(dir, ansibleFailoverPlaybook)
+
+	// TODO: reduce verbose ?
+	out, err = utils.ExecCmd(time.Minute*2, "ansible-playbook", playbook, "-t", drCleanTag, "-vvvvv")
+
+	return string(out), err
 }
