@@ -14,6 +14,17 @@ import (
 func TestGenerateVars_writeAnsibleVarsFile(t *testing.T) {
 	g := GenerateVars{
 		SecondaryUrl: "https://saengine2.localdomain/ovirt-engine/api",
+		StorageDomains: []Storage{
+			{
+				StorageType:   "nfs",
+				PrimaryName:   "nfs_dom",
+				PrimaryPath:   "/nfs_dom_dr/",
+				PrimaryAddr:   "10.1.1.2",
+				SecondaryName: "nfs_dom",
+				SecondaryPath: "/nfs_dom_dr2/",
+				SecondaryAddr: "10.1.2.3",
+			},
+		},
 	}
 	f, err := os.CreateTemp("", "")
 	if err != nil {

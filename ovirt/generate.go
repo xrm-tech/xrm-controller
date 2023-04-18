@@ -6,6 +6,7 @@ import (
 	"errors"
 	"os"
 	"path"
+	"regexp"
 	"strings"
 	"time"
 
@@ -55,14 +56,141 @@ func validateOvirtCon(url string, insecure bool, caFile, username, password stri
 	}
 }
 
+type Storage struct {
+	StorageType   string   `json:"storage_type" validate:"required"`
+	PrimaryName   string   `json:"primary_name" validate:"required"`
+	PrimaryDC     string   `json:"-"`
+	PrimaryPath   string   `json:"primary_path" validate:"required"`
+	PrimaryAddr   string   `json:"primary_addr" validate:"required"`
+	SecondaryName string   `json:"secondary_name"`
+	SecondaryDC   string   `json:"secondary_dc_name"`
+	SecondaryPath string   `json:"secondary_path" validate:"required"`
+	SecondaryAddr string   `json:"secondary_addr" validate:"required"`
+	Additional    []string `json:"-"`
+}
+
+func (m *Storage) Reset() {
+	m.StorageType = ""
+	m.PrimaryName = ""
+	m.PrimaryPath = ""
+	m.PrimaryAddr = ""
+	m.SecondaryName = ""
+	m.SecondaryPath = ""
+	m.SecondaryAddr = ""
+	m.Additional = m.Additional[:0]
+}
+
+func (m *Storage) Set(s string) {
+	k, v, ok := strings.Cut(s, ": ")
+	if !ok {
+		m.Additional = append(m.Additional, s)
+	}
+	v = strings.TrimPrefix(v, "# ")
+	switch k {
+	case "dr_domain_type":
+		m.StorageType = v
+	case "dr_primary_name":
+		m.PrimaryName = v
+	case "dr_primary_dc_name":
+		m.PrimaryDC = v
+	case "dr_primary_path":
+		m.PrimaryPath = v
+	case "dr_primary_address":
+		m.PrimaryAddr = v
+	case "dr_secondary_name":
+		m.SecondaryName = v
+	case "dr_secondary_dc_name":
+		m.SecondaryDC = v
+	case "dr_secondary_address":
+		m.SecondaryAddr = v
+	case "dr_secondary_path":
+		m.SecondaryPath = v
+	default:
+		m.Additional = append(m.Additional, k+": "+v)
+	}
+}
+
+func (m *Storage) Remap(storageDomains []Storage) error {
+	for _, domain := range storageDomains {
+		if m.StorageType == domain.StorageType && m.PrimaryName == domain.PrimaryName &&
+			m.PrimaryAddr == domain.PrimaryAddr && m.PrimaryPath == domain.PrimaryPath {
+			if domain.SecondaryName == "" {
+				m.SecondaryName = domain.PrimaryName
+			} else {
+				m.SecondaryName = domain.SecondaryName
+			}
+			if domain.SecondaryDC == "" {
+				m.SecondaryDC = m.PrimaryDC
+			} else {
+				m.SecondaryDC = domain.SecondaryDC
+			}
+			m.SecondaryAddr = domain.SecondaryAddr
+			m.SecondaryPath = domain.SecondaryPath
+			return nil
+		}
+	}
+	return errors.New("storage map for " + m.PrimaryName + " not found")
+}
+
+func writeEntry(w *bufio.Writer, k, v string) error {
+	if _, err := w.WriteString(k); err != nil {
+		return err
+	}
+	if _, err := w.WriteString(v); err != nil {
+		return err
+	}
+	return w.WriteByte('\n')
+}
+
+func (m *Storage) Write(w *bufio.Writer) error {
+	if err := writeEntry(w, "- dr_domain_type: ", m.StorageType); err != nil {
+		return err
+	}
+
+	if err := writeEntry(w, "  dr_primary_name: ", m.PrimaryName); err != nil {
+		return err
+	}
+	if err := writeEntry(w, "  dr_primary_dc_name: ", m.PrimaryDC); err != nil {
+		return err
+	}
+	if err := writeEntry(w, "  dr_primary_path: ", m.PrimaryPath); err != nil {
+		return err
+	}
+	if err := writeEntry(w, "  dr_primary_address: ", m.PrimaryAddr); err != nil {
+		return err
+	}
+
+	if err := writeEntry(w, "  dr_secondary_name: ", m.SecondaryName); err != nil {
+		return err
+	}
+	if err := writeEntry(w, "  dr_secondary_dc_name: ", m.SecondaryDC); err != nil {
+		return err
+	}
+	if err := writeEntry(w, "  dr_secondary_path: ", m.SecondaryPath); err != nil {
+		return err
+	}
+	if err := writeEntry(w, "  dr_secondary_address: ", m.SecondaryAddr); err != nil {
+		return err
+	}
+
+	for _, a := range m.Additional {
+		if err := writeEntry(w, "  ", a); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
 // GenerateVars is OVirt engines API address/credentials
 type GenerateVars struct {
-	PrimaryUrl        string `json:"site_primary_url" validate:"required,startswith=https://"`
-	PrimaryUsername   string `json:"site_primary_username" validate:"required"`
-	PrimaryPassword   string `json:"site_primary_password" validate:"required"`
-	SecondaryUrl      string `json:"site_secondary_url" validate:"required,startswith=https://"`
-	SecondaryUsername string `json:"site_secondary_username" validate:"required"`
-	SecondaryPassword string `json:"site_secondary_password" validate:"required"`
+	PrimaryUrl        string    `json:"site_primary_url" validate:"required,startswith=https://"`
+	PrimaryUsername   string    `json:"site_primary_username" validate:"required"`
+	PrimaryPassword   string    `json:"site_primary_password" validate:"required"`
+	SecondaryUrl      string    `json:"site_secondary_url" validate:"required,startswith=https://"`
+	SecondaryUsername string    `json:"site_secondary_username" validate:"required"`
+	SecondaryPassword string    `json:"site_secondary_password" validate:"required"`
+	StorageDomains    []Storage `json:"storage_domains" validate:"required"`
 }
 
 func (g GenerateVars) Generate(name, dir string) (out string, err error) {
@@ -120,14 +248,13 @@ func (g GenerateVars) Generate(name, dir string) (out string, err error) {
 	// TODO: reduce verbose ?
 	if out, err = utils.ExecCmd(time.Minute*2, "ansible-playbook", ansibleGeneratePlaybook, "-t", ansibleDrTag, "-e", extraVars, "-vvvvv"); err == nil {
 		if utils.FileExists(ansibleVarFileTpl) {
-			err = g.writeAnsibleVarsFile(ansibleVarFileTpl, ansibleVarFile)
+			err = g.writeAnsibleFailbackFile(ansibleFailoverPlaybook, ansibleFailbackPlaybook)
+			if err == nil {
+				err = g.writeAnsibleVarsFile(ansibleVarFileTpl, ansibleVarFile)
+			}
 		} else {
 			err = ErrVarFileNotExist
 		}
-	}
-
-	if err == nil {
-		err = g.writeAnsibleFailbackFile(ansibleFailoverPlaybook, ansibleFailbackPlaybook)
 	}
 
 	return
@@ -153,6 +280,16 @@ func (g GenerateVars) writeAnsiblePwdDile(pwdFile string) error {
 	return err
 }
 
+type importStorageState int8
+
+const (
+	importStorageNone = iota
+	importStorageWant
+	importStorageStarted
+)
+
+var blankRe = regexp.MustCompile(`^ *#`)
+
 func (g GenerateVars) writeAnsibleVarsFile(template, varFile string) (err error) {
 	var in, out *os.File
 	in, err = os.Open(template)
@@ -168,9 +305,78 @@ func (g GenerateVars) writeAnsibleVarsFile(template, varFile string) (err error)
 	defer out.Close()
 	writer := bufio.NewWriter(out)
 
+	var (
+		importStorage importStorageState
+		storage       Storage
+		remapErrs     []error
+	)
 	scanner := bufio.NewScanner(in)
 	for scanner.Scan() {
 		s := scanner.Text()
+		if blankRe.MatchString(s) {
+			if importStorage == importStorageStarted {
+				if strings.Contains(s, "# Fill in the empty properties") {
+					continue
+				}
+				if strings.HasPrefix(s, "#") {
+					if rErr := storage.Remap(g.StorageDomains); rErr != nil {
+						remapErrs = append(remapErrs, rErr)
+					}
+					if err = storage.Write(writer); err != nil {
+						return err
+					}
+					importStorage = importStorageNone
+					if err = writer.WriteByte('\n'); err != nil {
+						return
+					}
+					if _, err = writer.WriteString(s); err != nil {
+						return
+					}
+					if err = writer.WriteByte('\n'); err != nil {
+						return
+					}
+					continue
+				}
+			}
+			if _, err = writer.WriteString(s); err != nil {
+				return
+			}
+			if err = writer.WriteByte('\n'); err != nil {
+				return
+			}
+			continue
+		} else if importStorage == importStorageWant {
+			if strings.HasPrefix(s, "- ") {
+				importStorage = importStorageStarted
+				storage.Set(utils.Clone(s[2:]))
+				continue
+			} else {
+				importStorage = importStorageNone
+			}
+		} else if importStorage == importStorageStarted {
+			if strings.HasPrefix(s, "  ") {
+				storage.Set(utils.Clone(s[2:]))
+				continue
+			} else if strings.HasPrefix(s, "- ") {
+				storage.Reset()
+				storage.Set(utils.Clone(s[2:]))
+				continue
+			} else if s == "" {
+				continue
+			} else {
+				if rErr := storage.Remap(g.StorageDomains); rErr != nil {
+					remapErrs = append(remapErrs, rErr)
+				}
+				if err = storage.Write(writer); err != nil {
+					return err
+				}
+				importStorage = importStorageNone
+				if err = writer.WriteByte('\n'); err != nil {
+					return
+				}
+			}
+		}
+
 		if strings.HasPrefix(s, "dr_sites_secondary_url: ") {
 			if _, err = writer.WriteString("dr_sites_secondary_url: "); err != nil {
 				return
@@ -208,6 +414,15 @@ func (g GenerateVars) writeAnsibleVarsFile(template, varFile string) (err error)
 					return
 				}
 			}
+		} else if s == "dr_import_storages:" {
+			if _, err = writer.WriteString(s); err != nil {
+				return
+			}
+			if err = writer.WriteByte('\n'); err != nil {
+				return
+			}
+			importStorage = importStorageWant
+			storage.Reset()
 		} else {
 			if _, err = writer.WriteString(s); err != nil {
 				return
@@ -217,11 +432,29 @@ func (g GenerateVars) writeAnsibleVarsFile(template, varFile string) (err error)
 			}
 		}
 	}
+
+	if importStorage == importStorageStarted {
+		if rErr := storage.Remap(g.StorageDomains); rErr != nil {
+			remapErrs = append(remapErrs, rErr)
+		}
+		if err = storage.Write(writer); err != nil {
+			return err
+		}
+	}
+
 	if err = writer.Flush(); err != nil {
 		return
 	}
 
-	return scanner.Err()
+	err = scanner.Err()
+	if err != nil {
+		return
+	}
+	if len(remapErrs) > 0 {
+		err = remapErrs[0]
+	}
+
+	return
 }
 
 func (g GenerateVars) writeAnsibleFailbackFile(failover, failback string) (err error) {

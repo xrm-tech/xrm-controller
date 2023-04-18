@@ -47,6 +47,7 @@ func oVirtFailover(c *fiber.Ctx) (err error) {
 	)
 	name := c.Params("name")
 
+	// TODO (SECURITY): cleanup token from out
 	if out, err = ovirt.Failover(name, Cfg.OVirtStoreDir); err == nil {
 		// TODO: debug loglevel ??
 		Cfg.Logger.Info().Str("out", out)
