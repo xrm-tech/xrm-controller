@@ -205,12 +205,16 @@ func (g GenerateVars) Generate(name, dir string) (out string, err error) {
 		return
 	}
 
-	var lock *lockfile.LockFile
-	if lock, err = lockfile.GetLockFile(dir + ".lock"); err != nil {
+	if !lock.TryLock() {
+		return "", ErrInProgress
+	}
+
+	var flock *lockfile.LockFile
+	if flock, err = lockfile.GetLockFile(dir + ".lock"); err != nil {
+		lock.Unlock()
 		return
 	}
-	lock.Lock()
-	defer lock.Unlock()
+	flock.Lock()
 
 	ansibleGeneratePlaybook := path.Join(dir, ansibleGeneratePlaybook)
 	ansibleFailoverPlaybook := path.Join(dir, ansibleFailoverPlaybook)
@@ -220,42 +224,54 @@ func (g GenerateVars) Generate(name, dir string) (out string, err error) {
 	primaryCaFile := path.Join(dir, "primary.ca")
 	secondaryCaFile := path.Join(dir, "secondary.ca")
 
-	if err = cp.Copy(template, dir); err != nil {
-		return
-	}
+	wg.Add(1)
 
-	if err = saveCaFile(g.PrimaryUrl, primaryCaFile); err != nil {
-		return
-	}
-	if err = validateOvirtCon(g.PrimaryUrl, false, primaryCaFile, g.PrimaryUsername, g.PrimaryPassword); err != nil {
-		return
-	}
+	go func() {
+		defer func() {
+			lock.Unlock()
+			flock.Unlock()
+			wg.Done()
+		}()
 
-	if err = saveCaFile(g.SecondaryUrl, secondaryCaFile); err != nil {
-		return
-	}
-	if err = validateOvirtCon(g.SecondaryUrl, false, secondaryCaFile, g.SecondaryUsername, g.SecondaryPassword); err != nil {
-		return
-	}
-
-	if err = g.writeAnsiblePwdDile(path.Join(dir, ansibleDrPwdFile)); err != nil {
-		return
-	}
-
-	extraVars := "site=" + g.PrimaryUrl + " username=" + g.PrimaryUsername + " password=" + g.PrimaryPassword +
-		" ca=" + primaryCaFile + " var_file=" + ansibleVarFileTpl
-
-	// TODO: reduce verbose ?
-	if out, err = utils.ExecCmd(time.Minute*2, "ansible-playbook", ansibleGeneratePlaybook, "-t", ansibleDrTag, "-e", extraVars, "-vvvvv"); err == nil {
-		if utils.FileExists(ansibleVarFileTpl) {
-			err = g.writeAnsibleFailbackFile(ansibleFailoverPlaybook, ansibleFailbackPlaybook)
-			if err == nil {
-				err = g.writeAnsibleVarsFile(ansibleVarFileTpl, ansibleVarFile)
-			}
-		} else {
-			err = ErrVarFileNotExist
+		if err = cp.Copy(template, dir); err != nil {
+			return
 		}
-	}
+
+		if err = saveCaFile(g.PrimaryUrl, primaryCaFile); err != nil {
+			return
+		}
+		if err = validateOvirtCon(g.PrimaryUrl, false, primaryCaFile, g.PrimaryUsername, g.PrimaryPassword); err != nil {
+			return
+		}
+
+		if err = saveCaFile(g.SecondaryUrl, secondaryCaFile); err != nil {
+			return
+		}
+		if err = validateOvirtCon(g.SecondaryUrl, false, secondaryCaFile, g.SecondaryUsername, g.SecondaryPassword); err != nil {
+			return
+		}
+
+		if err = g.writeAnsiblePwdDile(path.Join(dir, ansibleDrPwdFile)); err != nil {
+			return
+		}
+
+		extraVars := "site=" + g.PrimaryUrl + " username=" + g.PrimaryUsername + " password=" + g.PrimaryPassword +
+			" ca=" + primaryCaFile + " var_file=" + ansibleVarFileTpl
+
+		// TODO: reduce verbose ?
+		if out, err = utils.ExecCmd(dir+"/generate.log", time.Minute*10, "ansible-playbook", ansibleGeneratePlaybook, "-t", ansibleDrTag, "-e", extraVars, "-vvvvv"); err == nil {
+			if utils.FileExists(ansibleVarFileTpl) {
+				err = g.writeAnsibleFailbackFile(ansibleFailoverPlaybook, ansibleFailbackPlaybook)
+				if err == nil {
+					err = g.writeAnsibleVarsFile(ansibleVarFileTpl, ansibleVarFile)
+				}
+			} else {
+				err = ErrVarFileNotExist
+			}
+		}
+	}()
+
+	wg.Wait()
 
 	return
 }

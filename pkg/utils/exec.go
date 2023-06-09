@@ -1,14 +1,63 @@
 package utils
 
 import (
+	"bufio"
+	"bytes"
 	"context"
+	"os"
 	"os/exec"
 	"time"
 )
 
-func ExecCmd(timeout time.Duration, command string, args ...string) (string, error) {
+func ExecCmd(outFile string, timeout time.Duration, command string, args ...string) (string, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
-	out, err := exec.CommandContext(ctx, command, args...).CombinedOutput()
-	return string(out), err
+
+	cmd := exec.CommandContext(ctx, command, args...)
+	out, err := cmd.StdoutPipe()
+	if err != nil {
+		return "", err
+	}
+	outErr, err := cmd.StderrPipe()
+	if err != nil {
+		return "", err
+	}
+
+	if FileExists(outFile) {
+		if err := os.Rename(outFile, outFile+".old"); err != nil {
+			return "", err
+		}
+	}
+
+	f, err := os.OpenFile(outFile, os.O_WRONLY|os.O_TRUNC|os.O_CREATE, 0644)
+	if err != nil {
+		return "", err
+	}
+	defer f.Close()
+
+	cmd.Start()
+
+	var outBuf bytes.Buffer
+
+	scanner := bufio.NewScanner(out)
+	for scanner.Scan() {
+		b := scanner.Bytes()
+		outBuf.Write(b)
+		outBuf.WriteByte('\n')
+		f.Write(b)
+		f.Write([]byte{'\n'})
+	}
+
+	scanner = bufio.NewScanner(outErr)
+	for scanner.Scan() {
+		b := scanner.Bytes()
+		outBuf.Write(b)
+		outBuf.WriteByte('\n')
+		f.Write(b)
+		f.Write([]byte{'\n'})
+	}
+
+	err = cmd.Wait()
+
+	return outBuf.String(), err
 }
