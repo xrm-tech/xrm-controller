@@ -1,11 +1,12 @@
 package ovirt
 
 import (
+	"os/exec"
 	"path"
 	"sync"
 	"time"
 
-	"github.com/containers/storage/pkg/lockfile"
+	"github.com/juju/fslock"
 	"github.com/xrm-tech/xrm-controller/pkg/utils"
 )
 
@@ -20,6 +21,12 @@ var (
 
 // Failover initiate failover for {dir}/{name}
 func Failover(name, dir string) (out string, err error) {
+	ansiblePath, err := exec.LookPath("ansible-playbook")
+	if err != nil {
+		err = ErrAnsibleNotFound
+		return
+	}
+
 	if !validateName(name) {
 		return "", ErrNameInvalid
 	}
@@ -33,12 +40,11 @@ func Failover(name, dir string) (out string, err error) {
 		return "", ErrInProgress
 	}
 
-	var flock *lockfile.LockFile
-	if flock, err = lockfile.GetLockFile(dir + ".lock"); err != nil {
+	flock := fslock.New(dir + ".lock")
+	if err = flock.TryLock(); err != nil {
 		lock.Unlock()
 		return
 	}
-	flock.Lock()
 
 	playbook := path.Join(dir, ansibleFailoverPlaybook)
 
@@ -51,7 +57,7 @@ func Failover(name, dir string) (out string, err error) {
 			wg.Done()
 		}()
 		// TODO: reduce verbose ?
-		out, err = utils.ExecCmd(dir+"/failover.log", time.Minute*10, "ansible-playbook", playbook, "-t", drFailoverTag, "-vvvvv")
+		out, err = utils.ExecCmd(dir+"/failover.log", time.Minute*10, ansiblePath, playbook, "-t", drFailoverTag, "-vvvvv")
 	}()
 
 	wg.Wait()
@@ -74,13 +80,11 @@ func Failback(name, dir string) (out string, err error) {
 		return "", ErrInProgress
 	}
 
-	var flock *lockfile.LockFile
-	if flock, err = lockfile.GetLockFile(dir + ".lock"); err != nil {
+	flock := fslock.New(dir + ".lock")
+	if err = flock.TryLock(); err != nil {
 		lock.Unlock()
 		return
 	}
-	flock.Lock()
-	defer flock.Unlock()
 
 	playbook := path.Join(dir, ansibleFailbackPlaybook)
 
@@ -115,21 +119,23 @@ func Cleanup(name, dir string) (out string, err error) {
 	if !lock.TryLock() {
 		return "", ErrInProgress
 	}
-	defer lock.Unlock()
 
-	var flock *lockfile.LockFile
-	if flock, err = lockfile.GetLockFile(dir + ".lock"); err != nil {
+	flock := fslock.New(dir + ".lock")
+	if err = flock.TryLock(); err != nil {
+		lock.Unlock()
 		return
 	}
-	flock.Lock()
-	defer flock.Unlock()
 
 	playbook := path.Join(dir, ansibleFailoverPlaybook)
 
 	wg.Add(1)
 
 	go func() {
-		defer wg.Done()
+		defer func() {
+			lock.Unlock()
+			flock.Unlock()
+			wg.Done()
+		}()
 		// TODO: reduce verbose ?
 		out, err = utils.ExecCmd(dir+"/cleanup.log", time.Minute*10, "ansible-playbook", playbook, "-t", drCleanTag, "-vvvvv")
 	}()

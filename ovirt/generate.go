@@ -5,12 +5,13 @@ import (
 	"bytes"
 	"errors"
 	"os"
+	"os/exec"
 	"path"
 	"regexp"
 	"strings"
 	"time"
 
-	"github.com/containers/storage/pkg/lockfile"
+	"github.com/juju/fslock"
 	cp "github.com/otiai10/copy"
 	ovirtsdk4 "github.com/ovirt/go-ovirt"
 
@@ -194,6 +195,12 @@ type GenerateVars struct {
 }
 
 func (g GenerateVars) Generate(name, dir string) (out string, err error) {
+	ansiblePath, err := exec.LookPath("ansible-playbook")
+	if err != nil {
+		err = ErrAnsibleNotFound
+		return
+	}
+
 	if !validateName(name) {
 		err = ErrNameInvalid
 		return
@@ -205,17 +212,6 @@ func (g GenerateVars) Generate(name, dir string) (out string, err error) {
 		return
 	}
 
-	if !lock.TryLock() {
-		return "", ErrInProgress
-	}
-
-	var flock *lockfile.LockFile
-	if flock, err = lockfile.GetLockFile(dir + ".lock"); err != nil {
-		lock.Unlock()
-		return
-	}
-	flock.Lock()
-
 	ansibleGeneratePlaybook := path.Join(dir, ansibleGeneratePlaybook)
 	ansibleFailoverPlaybook := path.Join(dir, ansibleFailoverPlaybook)
 	ansibleFailbackPlaybook := path.Join(dir, ansibleFailbackPlaybook)
@@ -223,6 +219,16 @@ func (g GenerateVars) Generate(name, dir string) (out string, err error) {
 	ansibleVarFileTpl := ansibleVarFile + ".tpl"
 	primaryCaFile := path.Join(dir, "primary.ca")
 	secondaryCaFile := path.Join(dir, "secondary.ca")
+
+	if !lock.TryLock() {
+		return "", ErrInProgress
+	}
+
+	flock := fslock.New(dir + ".lock")
+	if err = flock.TryLock(); err != nil {
+		lock.Unlock()
+		return
+	}
 
 	wg.Add(1)
 
@@ -259,7 +265,7 @@ func (g GenerateVars) Generate(name, dir string) (out string, err error) {
 			" ca=" + primaryCaFile + " var_file=" + ansibleVarFileTpl
 
 		// TODO: reduce verbose ?
-		if out, err = utils.ExecCmd(dir+"/generate.log", time.Minute*10, "ansible-playbook", ansibleGeneratePlaybook, "-t", ansibleDrTag, "-e", extraVars, "-vvvvv"); err == nil {
+		if out, err = utils.ExecCmd(dir+"/generate.log", time.Minute*10, ansiblePath, ansibleGeneratePlaybook, "-t", ansibleDrTag, "-e", extraVars, "-vvvvv"); err == nil {
 			if utils.FileExists(ansibleVarFileTpl) {
 				err = g.writeAnsibleFailbackFile(ansibleFailoverPlaybook, ansibleFailbackPlaybook)
 				if err == nil {
