@@ -53,7 +53,7 @@ func Failover(name, dir string) (out string, err error) {
 	go func() {
 		defer func() {
 			lock.Unlock()
-			flock.Unlock()
+			_ = flock.Unlock()
 			wg.Done()
 		}()
 		// TODO: reduce verbose ?
@@ -93,7 +93,7 @@ func Failback(name, dir string) (out string, err error) {
 	go func() {
 		defer func() {
 			lock.Unlock()
-			flock.Unlock()
+			_ = flock.Unlock()
 			wg.Done()
 		}()
 		// TODO: reduce verbose ?
@@ -133,7 +133,7 @@ func Cleanup(name, dir string) (out string, err error) {
 	go func() {
 		defer func() {
 			lock.Unlock()
-			flock.Unlock()
+			_ = flock.Unlock()
 			wg.Done()
 		}()
 		// TODO: reduce verbose ?

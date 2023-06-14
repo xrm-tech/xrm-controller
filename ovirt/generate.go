@@ -27,7 +27,6 @@ var (
 	ansibleGeneratePlaybook = "dr_generate.yml"
 	ansibleFailoverPlaybook = "dr_failover.yml"
 	ansibleFailbackPlaybook = "dr_failback.yml"
-	ansibleDrVarsFileTpl    = "disaster_recovery_vars.yml.tpl"
 	ansibleDrVarsFile       = "disaster_recovery_vars.yml"
 	ansibleDrPwdFile        = "ovirt_passwords.yml"
 )
@@ -235,7 +234,7 @@ func (g GenerateVars) Generate(name, dir string) (out string, err error) {
 	go func() {
 		defer func() {
 			lock.Unlock()
-			flock.Unlock()
+			_ = flock.Unlock()
 			wg.Done()
 		}()
 

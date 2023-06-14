@@ -35,7 +35,9 @@ func ExecCmd(outFile string, timeout time.Duration, command string, args ...stri
 	}
 	defer f.Close()
 
-	cmd.Start()
+	if err = cmd.Start(); err != nil {
+		return "", err
+	}
 
 	var outBuf bytes.Buffer
 
@@ -44,8 +46,8 @@ func ExecCmd(outFile string, timeout time.Duration, command string, args ...stri
 		b := scanner.Bytes()
 		outBuf.Write(b)
 		outBuf.WriteByte('\n')
-		f.Write(b)
-		f.Write([]byte{'\n'})
+		_, _ = f.Write(b)
+		_, _ = f.Write([]byte{'\n'})
 	}
 
 	scanner = bufio.NewScanner(outErr)
@@ -53,8 +55,8 @@ func ExecCmd(outFile string, timeout time.Duration, command string, args ...stri
 		b := scanner.Bytes()
 		outBuf.Write(b)
 		outBuf.WriteByte('\n')
-		f.Write(b)
-		f.Write([]byte{'\n'})
+		_, _ = f.Write(b)
+		_, _ = f.Write([]byte{'\n'})
 	}
 
 	err = cmd.Wait()

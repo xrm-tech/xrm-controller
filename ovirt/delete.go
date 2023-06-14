@@ -26,7 +26,7 @@ func Delete(name, dir string) (err error) {
 		if err = flock.TryLock(); err != nil {
 			return
 		}
-		defer flock.Unlock()
+		defer func() { _ = flock.Unlock() }()
 
 		err = os.RemoveAll(dir)
 	}

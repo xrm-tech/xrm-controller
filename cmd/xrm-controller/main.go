@@ -6,7 +6,6 @@ import (
 	"path"
 	"strings"
 
-	"github.com/gofiber/fiber/v2"
 	"github.com/msaf1980/go-clipper"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
@@ -20,8 +19,6 @@ var (
 	BuildVersion string
 	users        []string
 	debug        bool
-
-	app *fiber.App
 )
 
 func main() {
