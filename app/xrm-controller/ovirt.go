@@ -3,7 +3,6 @@ package xrmcontroller
 import (
 	"net/http"
 
-	"github.com/go-playground/validator/v10"
 	"github.com/gofiber/fiber/v2"
 	"github.com/rs/zerolog"
 	"github.com/xrm-tech/xrm-controller/ovirt"
@@ -23,25 +22,19 @@ func oVirtGenerate(c *fiber.Ctx) (err error) {
 		out         string
 	)
 	if err = c.BodyParser(&sitesConfig); err != nil {
-		Cfg.Logger.Error().Err(err).Str("body", utils.UnsafeString(bodyPasswordCleanup(c.Request().Body())))
-		return c.Status(fiber.StatusBadRequest).SendString(err.Error())
-	} else {
-		if logLevel := Cfg.Logger.GetLevel(); logLevel == zerolog.DebugLevel || logLevel == zerolog.TraceLevel {
-			Cfg.Logger.Debug().Str("body", utils.UnsafeString(bodyPasswordCleanup(c.Request().Body())))
-		}
+		c.Context().SetUserValue("req_body", utils.UnsafeString(bodyPasswordCleanup(c.Request().Body())))
+		return fiber.NewError(http.StatusBadRequest, err.Error())
+	} else if logLevel := Cfg.Logger.GetLevel(); logLevel == zerolog.DebugLevel || logLevel == zerolog.TraceLevel {
+		c.Context().SetUserValue("req_body", utils.UnsafeString(bodyPasswordCleanup(c.Request().Body())))
 	}
 	if err := sitesConfig.Validate(); err != nil {
-		Cfg.Logger.Error().Err(err)
-		return c.Status(fiber.StatusBadRequest).JSON(utils.ValidatorError(err.(validator.ValidationErrors)))
+		return fiber.NewError(http.StatusBadRequest, err.Error())
 	}
 	name := c.Params("name")
 
 	if out, err = sitesConfig.Generate(name, Cfg.OVirtStoreDir); err == nil {
-		// TODO: debug loglevel ??
-		Cfg.Logger.Info().Str("out", out)
 		return c.Status(http.StatusOK).SendString(out)
 	} else {
-		Cfg.Logger.Error().Err(err).Str("out", out)
 		return fiber.NewError(http.StatusInternalServerError, err.Error()+"\n"+out)
 	}
 }
@@ -55,10 +48,8 @@ func oVirtFailover(c *fiber.Ctx) (err error) {
 	// TODO (SECURITY): cleanup token from out
 	if out, err = ovirt.Failover(name, Cfg.OVirtStoreDir); err == nil {
 		// TODO: debug loglevel ??
-		Cfg.Logger.Info().Str("out", out)
 		return c.Status(http.StatusOK).SendString(out)
 	} else {
-		Cfg.Logger.Error().Err(err).Str("out", out)
 		return fiber.NewError(http.StatusInternalServerError, err.Error()+"\n"+out)
 	}
 }
@@ -71,10 +62,8 @@ func oVirtFailback(c *fiber.Ctx) (err error) {
 
 	if out, err = ovirt.Failback(name, Cfg.OVirtStoreDir); err == nil {
 		// TODO: debug loglevel ??
-		Cfg.Logger.Info().Str("out", out)
 		return c.Status(http.StatusOK).SendString(out)
 	} else {
-		Cfg.Logger.Error().Err(err).Str("out", out)
 		return fiber.NewError(http.StatusInternalServerError, err.Error()+"\n"+out)
 	}
 }

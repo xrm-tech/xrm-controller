@@ -48,6 +48,12 @@ func main() {
 		os.Exit(1)
 	}
 
+	if debug {
+		zerolog.SetGlobalLevel(zerolog.DebugLevel)
+	} else {
+		zerolog.SetGlobalLevel(zerolog.InfoLevel)
+	}
+
 	xrm.Cfg.Logger = zerolog.New(os.Stdout)
 	xrm.Cfg.Users = make(map[string]string)
 	for _, user := range users {
@@ -56,10 +62,6 @@ func main() {
 			// skip empty
 			xrm.Cfg.Users[username] = password
 		}
-	}
-
-	if debug {
-		zerolog.SetGlobalLevel(zerolog.DebugLevel)
 	}
 
 	if xrm.Cfg.StoreDir == "" {
