@@ -8,7 +8,7 @@
 
 ## Build docker image
 
-`docker build -t xrm-tech/xrm-comntroller:latest .`
+`docker build -t xrmtech/xrm-comntroller:latest .`
 
 ## Configure (for docker)
 
