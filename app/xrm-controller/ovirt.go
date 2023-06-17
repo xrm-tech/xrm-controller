@@ -5,6 +5,7 @@ import (
 
 	"github.com/go-playground/validator/v10"
 	"github.com/gofiber/fiber/v2"
+	"github.com/rs/zerolog"
 	"github.com/xrm-tech/xrm-controller/ovirt"
 	"github.com/xrm-tech/xrm-controller/pkg/utils"
 )
@@ -22,8 +23,12 @@ func oVirtGenerate(c *fiber.Ctx) (err error) {
 		out         string
 	)
 	if err = c.BodyParser(&sitesConfig); err != nil {
-		Cfg.Logger.Error().Err(err)
+		Cfg.Logger.Error().Err(err).Str("body", utils.UnsafeString(bodyPasswordCleanup(c.Request().Body())))
 		return c.Status(fiber.StatusBadRequest).SendString(err.Error())
+	} else {
+		if logLevel := Cfg.Logger.GetLevel(); logLevel == zerolog.DebugLevel || logLevel == zerolog.TraceLevel {
+			Cfg.Logger.Debug().Str("body", utils.UnsafeString(bodyPasswordCleanup(c.Request().Body())))
+		}
 	}
 	if err := sitesConfig.Validate(); err != nil {
 		Cfg.Logger.Error().Err(err)

@@ -12,3 +12,7 @@ func Decode(data []byte, v interface{}) error {
 	decoder.DisallowUnknownFields()
 	return decoder.Decode(v)
 }
+
+func Encode(v interface{}) ([]byte, error) {
+	return json.Marshal(v)
+}
