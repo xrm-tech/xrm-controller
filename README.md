@@ -1,4 +1,8 @@
-# xrm-controller Ovirt API
+# xrm-controller 
+
+xrm-controller  is a wrapper backend against virtualization site failover procedures.
+
+Focued to oVirt at now.
 
 
 ## Build
