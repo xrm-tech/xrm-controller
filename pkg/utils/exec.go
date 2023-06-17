@@ -6,6 +6,7 @@ import (
 	"context"
 	"os"
 	"os/exec"
+	"strings"
 	"time"
 )
 
@@ -34,6 +35,8 @@ func ExecCmd(outFile string, timeout time.Duration, command string, args ...stri
 		return "", err
 	}
 	defer f.Close()
+
+	_, _ = f.Write([]byte(cmd.Path + " '" + strings.Join(cmd.Args, "' '") + "'\n"))
 
 	if err = cmd.Start(); err != nil {
 		return "", err

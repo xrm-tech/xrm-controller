@@ -11,7 +11,7 @@ FROM  alpine:3.18.0
 RUN apk --no-cache add ca-certificates
 RUN apk add python3 py3-pip
 RUN pip3 install ansible-core==2.12.3
-RUN ansible-galaxy install ovirt.engine-setup
+RUN ansible-galaxy collection install ovirt.ovirt
 
 RUN mkdir -p /var/lib/xrm-controller/ovirt/template
 WORKDIR /root

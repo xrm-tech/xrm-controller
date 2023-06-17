@@ -18,7 +18,7 @@ Focued to oVirt at now.
 
 Docker container can be configured via environment variables
 
-`docker run -p 8080:8080 -e "XRM_CONTROLLER_USERS=admin:admin" -d xrm-tech/xrm-controller:latest`
+`docker run -p 8080:8080 -e "XRM_CONTROLLER_USERS=admin:admin" -d xrmtech/xrm-controller:latest`
 
 ## API
 
