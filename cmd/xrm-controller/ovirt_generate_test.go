@@ -51,10 +51,21 @@ func TestGenerateValidate(t *testing.T) {
 	}
 
 	siteConfig := ovirt.GenerateVars{
-		PrimaryUrl: "http://127.0.0.1:8443/ovirt-engine/api",
+		SecondaryUrl: "https://saengine2.localdomain/ovirt-engine/api",
+		StorageDomains: []ovirt.Storage{
+			{
+				StorageType:   "nfs",
+				PrimaryName:   "nfs_dom",
+				PrimaryPath:   "/nfs_dom_dr/",
+				PrimaryAddr:   "10.1.1.2",
+				SecondaryName: "nfs_dom",
+				SecondaryPath: "/nfs_dom_dr2/",
+				SecondaryAddr: "10.1.2.3",
+			},
+		},
 	}
 	// run without parameters
-	if err := tests.DoGenerate(request, &siteConfig, "test2", "password2", http.StatusBadRequest, "validation failed"); err != nil {
+	if err := tests.DoGenerate(request, &siteConfig, "test2", "password2", http.StatusBadRequest, "Field validation"); err != nil {
 		t.Fatal(err)
 	}
 
