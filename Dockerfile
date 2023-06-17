@@ -6,11 +6,11 @@ WORKDIR /go/src/github.com/xrm-tech/xrm-controller
 RUN CGO_ENABLED=0 make build
 
 
-FROM  alpine:3.18.0
+FROM almalinux:8.8
 
-RUN apk --no-cache add ca-certificates
-RUN apk add python3 py3-pip
-RUN pip3 install ansible-core==2.12.3
+RUN dnf install -y http://resources.ovirt.org/pub/yum-repo/ovirt-release44.rpm
+RUN dnf install -y python3-ovirt-engine-sdk4 python3-cryptography
+RUN pip3 install ansible-core==2.11.12
 RUN ansible-galaxy collection install ovirt.ovirt
 
 RUN mkdir -p /var/lib/xrm-controller/ovirt/template

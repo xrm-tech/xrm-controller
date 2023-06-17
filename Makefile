@@ -21,6 +21,12 @@ help:
 clean:
 	rm -f ./xrm-controller
 
+docker:
+	${DOCKER} build -t xrmtech/xrm-controller:$(VERSION) .
+
+docker-push:
+	${DOCKER} push xrmtech/xrm-controller:$(VERSION)
+
 build: FORCE
 	CGO_ENABLED=0 GO111MODULE=on ${GO} build -ldflags '-X main.BuildVersion=$(VERSION)' ${PWD}/cmd/xrm-controller
 
