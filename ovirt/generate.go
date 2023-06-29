@@ -10,6 +10,7 @@ import (
 	"regexp"
 	"strings"
 	"time"
+	"unicode/utf8"
 
 	"github.com/juju/fslock"
 	cp "github.com/otiai10/copy"
@@ -19,6 +20,8 @@ import (
 )
 
 var (
+	ErrImportStorageItem = errors.New("dr_import_storages item parse error")
+
 	ErrTemplateDirNotExist = errors.New("ovirt template dir not exist")
 	ErrDirAlreadyExist     = errors.New("dir already exist")
 	ErrVarFileNotExist     = errors.New("var file not exist")
@@ -56,83 +59,7 @@ func validateOvirtCon(url string, insecure bool, caFile, username, password stri
 	}
 }
 
-type Storage struct {
-	StorageType   string   `json:"storage_type" validate:"required"`
-	PrimaryName   string   `json:"primary_name" validate:"required"`
-	PrimaryDC     string   `json:"-"`
-	PrimaryPath   string   `json:"primary_path" validate:"required"`
-	PrimaryAddr   string   `json:"primary_addr" validate:"required"`
-	SecondaryName string   `json:"secondary_name"`
-	SecondaryDC   string   `json:"secondary_dc_name"`
-	SecondaryPath string   `json:"secondary_path" validate:"required"`
-	SecondaryAddr string   `json:"secondary_addr" validate:"required"`
-	Additional    []string `json:"-"`
-}
-
-func (m *Storage) Reset() {
-	m.StorageType = ""
-	m.PrimaryName = ""
-	m.PrimaryPath = ""
-	m.PrimaryAddr = ""
-	m.SecondaryName = ""
-	m.SecondaryPath = ""
-	m.SecondaryAddr = ""
-	m.Additional = m.Additional[:0]
-}
-
-func (m *Storage) Set(s string) {
-	k, v, ok := strings.Cut(s, ": ")
-	if !ok {
-		m.Additional = append(m.Additional, s)
-	}
-	v = strings.TrimPrefix(v, "# ")
-	switch k {
-	case "dr_domain_type":
-		m.StorageType = v
-	case "dr_primary_name":
-		m.PrimaryName = v
-	case "dr_primary_dc_name":
-		m.PrimaryDC = v
-	case "dr_primary_path":
-		m.PrimaryPath = v
-	case "dr_primary_address":
-		m.PrimaryAddr = v
-	case "dr_secondary_name":
-		m.SecondaryName = v
-	case "dr_secondary_dc_name":
-		m.SecondaryDC = v
-	case "dr_secondary_address":
-		m.SecondaryAddr = v
-	case "dr_secondary_path":
-		m.SecondaryPath = v
-	default:
-		m.Additional = append(m.Additional, k+": "+v)
-	}
-}
-
-func (m *Storage) Remap(storageDomains []Storage) error {
-	for _, domain := range storageDomains {
-		if m.StorageType == domain.StorageType && m.PrimaryName == domain.PrimaryName &&
-			m.PrimaryAddr == domain.PrimaryAddr && m.PrimaryPath == domain.PrimaryPath {
-			if domain.SecondaryName == "" {
-				m.SecondaryName = domain.PrimaryName
-			} else {
-				m.SecondaryName = domain.SecondaryName
-			}
-			if domain.SecondaryDC == "" {
-				m.SecondaryDC = m.PrimaryDC
-			} else {
-				m.SecondaryDC = domain.SecondaryDC
-			}
-			m.SecondaryAddr = domain.SecondaryAddr
-			m.SecondaryPath = domain.SecondaryPath
-			return nil
-		}
-	}
-	return errors.New("storage map for " + m.PrimaryName + " not found")
-}
-
-func writeEntry(w *bufio.Writer, k, v string) error {
+func writeEntryLn(w *bufio.Writer, k, v string) error {
 	if _, err := w.WriteString(k); err != nil {
 		return err
 	}
@@ -142,39 +69,198 @@ func writeEntry(w *bufio.Writer, k, v string) error {
 	return w.WriteByte('\n')
 }
 
+func writeStringLn(w *bufio.Writer, s string) (err error) {
+	if _, err = w.WriteString(s); err != nil {
+		return
+	}
+	err = w.WriteByte('\n')
+	return
+}
+
+func writeKVLn(w *bufio.Writer, k, v string) (err error) {
+	if _, err = w.WriteString(k); err != nil {
+		return
+	}
+	if _, err = w.WriteString(": "); err != nil {
+		return
+	}
+	if _, err = w.WriteString(v); err != nil {
+		return
+	}
+	err = w.WriteByte('\n')
+	return
+}
+
+var (
+	commentRe = regexp.MustCompile(`^ *#`)
+)
+
+func splitKV(s string, uncomment bool) (k, v string, ok bool) {
+	if commentRe.MatchString(s) {
+		return
+	}
+	k, v, ok = strings.Cut(s, ":")
+	if ok {
+		k = strings.TrimRight(k, " ")
+		v = strings.TrimLeft(v, " ")
+		if uncomment && strings.HasPrefix(v, "#") {
+			v = strings.TrimLeft(v, "#")
+			v = strings.TrimLeft(v, " ")
+		}
+		if v == "" {
+			ok = false
+		}
+	}
+	return
+}
+
+func startBytes(s string, r rune) (n int) {
+	l := utf8.RuneLen(r)
+	for _, c := range s {
+		if c == r {
+			n += l
+		} else {
+			break
+		}
+	}
+	return
+}
+
+type Storage struct {
+	StorageType   string   `json:"primary_type" validate:"required"`
+	PrimaryName   string   `json:"-"`
+	PrimaryDC     string   `json:"-"`
+	PrimaryPath   string   `json:"primary_path" validate:"required"`
+	PrimaryAddr   string   `json:"primary_addr" validate:"required"`
+	SecondaryName string   `json:"-"`
+	SecondaryDC   string   `json:"-"`
+	SecondaryPath string   `json:"secondary_path" validate:"required"`
+	SecondaryAddr string   `json:"secondary_addr" validate:"required"`
+	Additional    []string `json:"-"`
+}
+
+// {
+// 	'primary_type': 'nfs', 'primary_addr': '192.168.122.210', 'primary_path': '/nfs_dom',
+// 	'secondary_type': 'nfs', 'secondary_addr': '192.168.122.210', 'secondary_path': '/nfs_dom_replica'
+// }
+
+func (m *Storage) Reset() {
+	m.StorageType = ""
+	m.PrimaryDC = ""
+	m.PrimaryName = ""
+	m.PrimaryPath = ""
+	m.PrimaryAddr = ""
+	m.SecondaryDC = ""
+	m.SecondaryName = ""
+	m.SecondaryPath = ""
+	m.SecondaryAddr = ""
+	m.Additional = m.Additional[:0]
+}
+
+func (m *Storage) Set(s string) {
+	if strings.HasPrefix(s, "#") {
+		return
+	}
+	k, v, ok := strings.Cut(s, ": ")
+	if ok {
+		v = strings.TrimPrefix(v, " ")
+		v = strings.TrimPrefix(v, "# ")
+		switch k {
+		case "dr_domain_type":
+			m.StorageType = v
+		case "dr_primary_name":
+			m.PrimaryName = v
+		case "dr_primary_dc_name":
+			m.PrimaryDC = v
+		case "dr_primary_path":
+			m.PrimaryPath = v
+		case "dr_primary_address":
+			m.PrimaryAddr = v
+		case "dr_secondary_name":
+			m.SecondaryName = v
+		case "dr_secondary_dc_name":
+			m.SecondaryDC = v
+		case "dr_secondary_address":
+			m.SecondaryAddr = v
+		case "dr_secondary_path":
+			m.SecondaryPath = v
+		default:
+			m.Additional = append(m.Additional, k+": "+v)
+		}
+	} else {
+		m.Additional = append(m.Additional, s)
+	}
+}
+
+func (m *Storage) Remap(storageDomains []Storage) (bool, error) {
+	for _, domain := range storageDomains {
+		if m.StorageType != domain.StorageType {
+			continue
+		}
+		if domain.PrimaryName != "" && m.PrimaryName != domain.PrimaryName {
+			continue
+		}
+		if domain.PrimaryAddr != "" && m.PrimaryAddr != domain.PrimaryAddr {
+			continue
+		}
+		if domain.PrimaryPath != "" && m.PrimaryPath != domain.PrimaryPath {
+			continue
+		}
+
+		if domain.SecondaryName != "" {
+			m.SecondaryName = domain.SecondaryName
+		} else if domain.PrimaryName != "" {
+			m.SecondaryName = domain.PrimaryName
+		}
+		if domain.SecondaryDC != "" {
+			m.SecondaryDC = domain.SecondaryDC
+		} else if domain.PrimaryDC != "" {
+			m.SecondaryDC = m.PrimaryDC
+		}
+		if domain.SecondaryAddr != "" {
+			m.SecondaryAddr = domain.SecondaryAddr
+		}
+		if domain.SecondaryPath != "" {
+			m.SecondaryPath = domain.SecondaryPath
+		}
+		return true, nil
+	}
+	return true, errors.New("storage map for " + m.PrimaryName + " not found")
+}
+
 func (m *Storage) Write(w *bufio.Writer) error {
-	if err := writeEntry(w, "- dr_domain_type: ", m.StorageType); err != nil {
+	if err := writeEntryLn(w, "- dr_domain_type: ", m.StorageType); err != nil {
 		return err
 	}
 
-	if err := writeEntry(w, "  dr_primary_name: ", m.PrimaryName); err != nil {
+	if err := writeEntryLn(w, "  dr_primary_name: ", m.PrimaryName); err != nil {
 		return err
 	}
-	if err := writeEntry(w, "  dr_primary_dc_name: ", m.PrimaryDC); err != nil {
+	if err := writeEntryLn(w, "  dr_primary_dc_name: ", m.PrimaryDC); err != nil {
 		return err
 	}
-	if err := writeEntry(w, "  dr_primary_path: ", m.PrimaryPath); err != nil {
+	if err := writeEntryLn(w, "  dr_primary_path: ", m.PrimaryPath); err != nil {
 		return err
 	}
-	if err := writeEntry(w, "  dr_primary_address: ", m.PrimaryAddr); err != nil {
+	if err := writeEntryLn(w, "  dr_primary_address: ", m.PrimaryAddr); err != nil {
 		return err
 	}
 
-	if err := writeEntry(w, "  dr_secondary_name: ", m.SecondaryName); err != nil {
+	if err := writeEntryLn(w, "  dr_secondary_name: ", m.SecondaryName); err != nil {
 		return err
 	}
-	if err := writeEntry(w, "  dr_secondary_dc_name: ", m.SecondaryDC); err != nil {
+	if err := writeEntryLn(w, "  dr_secondary_dc_name: ", m.SecondaryDC); err != nil {
 		return err
 	}
-	if err := writeEntry(w, "  dr_secondary_path: ", m.SecondaryPath); err != nil {
+	if err := writeEntryLn(w, "  dr_secondary_path: ", m.SecondaryPath); err != nil {
 		return err
 	}
-	if err := writeEntry(w, "  dr_secondary_address: ", m.SecondaryAddr); err != nil {
+	if err := writeEntryLn(w, "  dr_secondary_address: ", m.SecondaryAddr); err != nil {
 		return err
 	}
 
 	for _, a := range m.Additional {
-		if err := writeEntry(w, "  ", a); err != nil {
+		if err := writeEntryLn(w, "  ", a); err != nil {
 			return err
 		}
 	}
@@ -210,6 +296,7 @@ func (g GenerateVars) Generate(name, dir string) (out string, err error) {
 		err = ErrDirAlreadyExist
 		return
 	}
+	var warnings []error
 
 	ansibleGeneratePlaybook := path.Join(dir, ansibleGeneratePlaybook)
 	ansibleFailoverPlaybook := path.Join(dir, ansibleFailoverPlaybook)
@@ -268,7 +355,7 @@ func (g GenerateVars) Generate(name, dir string) (out string, err error) {
 			if utils.FileExists(ansibleVarFileTpl) {
 				err = g.writeAnsibleFailbackFile(ansibleFailoverPlaybook, ansibleFailbackPlaybook)
 				if err == nil {
-					err = g.writeAnsibleVarsFile(ansibleVarFileTpl, ansibleVarFile)
+					warnings, err = g.writeAnsibleVarsFile(ansibleVarFileTpl, ansibleVarFile)
 				}
 			} else {
 				err = ErrVarFileNotExist
@@ -277,6 +364,16 @@ func (g GenerateVars) Generate(name, dir string) (out string, err error) {
 	}()
 
 	wg.Wait()
+
+	if len(warnings) > 0 {
+		var buf strings.Builder
+		buf.WriteString(out)
+		buf.WriteString("\nWARNINGS:\n")
+		for _, warn := range warnings {
+			buf.WriteString(warn.Error())
+			buf.WriteByte('\n')
+		}
+	}
 
 	return
 }
@@ -309,19 +406,17 @@ const (
 	importStorageStarted
 )
 
-var blankRe = regexp.MustCompile(`^ *#`)
-
-func (g GenerateVars) writeAnsibleVarsFile(template, varFile string) (err error) {
+func (g GenerateVars) writeAnsibleVarsFile(template, varFile string) (remapWarnings []error, err error) {
 	var in, out *os.File
 	in, err = os.Open(template)
 	if err != nil {
-		return err
+		return
 	}
 	defer in.Close()
 
 	out, err = os.OpenFile(varFile, os.O_RDWR|os.O_CREATE, 0644)
 	if err != nil {
-		return err
+		return
 	}
 	defer out.Close()
 	writer := bufio.NewWriter(out)
@@ -329,137 +424,199 @@ func (g GenerateVars) writeAnsibleVarsFile(template, varFile string) (err error)
 	var (
 		importStorage importStorageState
 		storage       Storage
-		remapErrs     []error
 	)
+	indent := 0
 	scanner := bufio.NewScanner(in)
 	for scanner.Scan() {
 		s := scanner.Text()
-		if blankRe.MatchString(s) {
-			if importStorage == importStorageStarted {
-				if strings.Contains(s, "# Fill in the empty properties") {
-					continue
+		// if blankRe.MatchString(s) {
+		// 	if importStorage == importStorageStarted {
+		// 		if strings.Contains(s, "# Fill in the empty properties") {
+		// 			continue
+		// 		}
+		// 		if strings.HasPrefix(s, "#") {
+		// 			if success, rErr := storage.Remap(g.StorageDomains); rErr != nil {
+		// 				if success {
+		// 					remapWarnings = append(remapWarnings, rErr)
+		// 				} else {
+		// 					err = rErr
+		// 					return
+		// 				}
+		// 			}
+		// 			if err = storage.Write(writer); err != nil {
+		// 				return
+		// 			}
+		// 			importStorage = importStorageNone
+		// 			if err = writer.WriteByte('\n'); err != nil {
+		// 				return
+		// 			}
+		// 			if _, err = writer.WriteString(s); err != nil {
+		// 				return
+		// 			}
+		// 			if err = writer.WriteByte('\n'); err != nil {
+		// 				return
+		// 			}
+		// 			continue
+		// 		}
+		// 	}
+		// 	if _, err = writer.WriteString(s); err != nil {
+		// 		return
+		// 	}
+		// 	if err = writer.WriteByte('\n'); err != nil {
+		// 		return
+		// 	}
+		// 	continue
+		// } else if importStorage == importStorageWant {
+		// 	if strings.HasPrefix(s, "- ") {
+		// 		importStorage = importStorageStarted
+		// 		storage.Set(utils.Clone(s[2:]))
+		// 		continue
+		// 	} else {
+		// 		importStorage = importStorageNone
+		// 	}
+		// } else if importStorage == importStorageStarted {
+		// 	if strings.HasPrefix(s, "  ") {
+		// 		storage.Set(utils.Clone(s[2:]))
+		// 		continue
+		// 	} else if strings.HasPrefix(s, "- ") {
+		// 		storage.Reset()
+		// 		storage.Set(utils.Clone(s[2:]))
+		// 		continue
+		// 	} else if s == "" {
+		// 		continue
+		// 	} else {
+		// 		if success, rErr := storage.Remap(g.StorageDomains); rErr != nil {
+		// 			if success {
+		// 				remapWarnings = append(remapWarnings, rErr)
+		// 			} else {
+		// 				err = rErr
+		// 				return
+		// 			}
+		// 		}
+		// 		if err = storage.Write(writer); err != nil {
+		// 			return
+		// 		}
+		// 		importStorage = importStorageNone
+		// 		if err = writer.WriteByte('\n'); err != nil {
+		// 			return
+		// 		}
+		// 	}
+		// }
+
+		switch importStorage {
+		case importStorageStarted:
+			if strings.HasPrefix(s, "- ") {
+				importStorage = importStorageWant
+				indent = startBytes(s[1:], ' ') + 1
+				if indent != 2 {
+					err = ErrImportStorageItem
+					return
 				}
-				if strings.HasPrefix(s, "#") {
-					if rErr := storage.Remap(g.StorageDomains); rErr != nil {
-						remapErrs = append(remapErrs, rErr)
+				storage.Set(s[indent:])
+			} else {
+				err = ErrImportStorageItem
+				return
+			}
+		case importStorageWant:
+			if strings.HasPrefix(s, "- ") {
+				if storage.StorageType != "" {
+					// flush map
+					if success, rErr := storage.Remap(g.StorageDomains); rErr != nil {
+						if success {
+							remapWarnings = append(remapWarnings, rErr)
+						} else {
+							err = rErr
+							return
+						}
 					}
 					if err = storage.Write(writer); err != nil {
-						return err
-					}
-					importStorage = importStorageNone
-					if err = writer.WriteByte('\n'); err != nil {
 						return
 					}
-					if _, err = writer.WriteString(s); err != nil {
-						return
-					}
-					if err = writer.WriteByte('\n'); err != nil {
-						return
-					}
-					continue
 				}
-			}
-			if _, err = writer.WriteString(s); err != nil {
-				return
-			}
-			if err = writer.WriteByte('\n'); err != nil {
-				return
-			}
-			continue
-		} else if importStorage == importStorageWant {
-			if strings.HasPrefix(s, "- ") {
-				importStorage = importStorageStarted
-				storage.Set(utils.Clone(s[2:]))
-				continue
-			} else {
-				importStorage = importStorageNone
-			}
-		} else if importStorage == importStorageStarted {
-			if strings.HasPrefix(s, "  ") {
-				storage.Set(utils.Clone(s[2:]))
-				continue
-			} else if strings.HasPrefix(s, "- ") {
 				storage.Reset()
-				storage.Set(utils.Clone(s[2:]))
-				continue
-			} else if s == "" {
-				continue
-			} else {
-				if rErr := storage.Remap(g.StorageDomains); rErr != nil {
-					remapErrs = append(remapErrs, rErr)
-				}
-				if err = storage.Write(writer); err != nil {
-					return err
-				}
-				importStorage = importStorageNone
-				if err = writer.WriteByte('\n'); err != nil {
-					return
-				}
-			}
-		}
 
-		if strings.HasPrefix(s, "dr_sites_secondary_url: ") {
-			if _, err = writer.WriteString("dr_sites_secondary_url: "); err != nil {
-				return
-			}
-			if _, err = writer.WriteString(g.SecondaryUrl); err != nil {
-				return
-			}
-			if err = writer.WriteByte('\n'); err != nil {
-				return
-			}
-		} else if (strings.HasPrefix(s, "dr_sites_secondary_") || strings.HasPrefix(s, "  dr_secondary_") ||
-			strings.HasPrefix(s, "  secondary_")) && strings.Contains(s, ": # ") {
-			if k, v, ok := strings.Cut(s, ": # "); ok {
-				if _, err = writer.WriteString(k); err != nil {
+				importStorage = importStorageWant
+				indent = startBytes(s[1:], ' ') + 1
+				if indent != 2 {
+					err = ErrImportStorageItem
 					return
 				}
-				if _, err = writer.WriteString(": "); err != nil {
-					return
-				}
-				if strings.HasPrefix(s, "dr_sites_secondary_ca_file: ") {
-					if _, err = writer.WriteString(strings.Replace(v, "primary.ca", "secondary.ca", 1)); err != nil {
+				storage.Set(s[indent:])
+			} else if strings.HasPrefix(s, "  ") {
+				storage.Set(s[2:])
+			} else {
+				// break map
+				if storage.StorageType != "" {
+					if success, rErr := storage.Remap(g.StorageDomains); rErr != nil {
+						if success {
+							remapWarnings = append(remapWarnings, rErr)
+						} else {
+							err = rErr
+							return
+						}
+					}
+					if err = storage.Write(writer); err != nil {
 						return
 					}
-				} else if _, err = writer.WriteString(v); err != nil {
+				}
+
+				importStorage = importStorageNone
+				storage.Reset()
+
+				k, v, ok := splitKV(s, true)
+				if ok {
+					if err = writeKVLn(writer, k, v); err != nil {
+						return
+					}
+				} else if err = writeStringLn(writer, s); err != nil {
 					return
 				}
-				if err = writer.WriteByte('\n'); err != nil {
+			}
+		default:
+			if strings.HasPrefix(s, "dr_sites_secondary_url: ") {
+				if err = writeKVLn(writer, "dr_sites_secondary_url", g.SecondaryUrl); err != nil {
 					return
 				}
+			} else if strings.HasPrefix(s, "dr_sites_secondary_username: ") {
+				if err = writeKVLn(writer, "dr_sites_secondary_username", g.SecondaryUsername); err != nil {
+					return
+				}
+			} else if strings.HasPrefix(s, "dr_sites_secondary_ca_file: ") {
+				k, v, _ := splitKV(s, true)
+				if err = writeKVLn(writer, k, strings.Replace(v, "primary.ca", "secondary.ca", 1)); err != nil {
+					return
+				}
+			} else if s == "dr_import_storages:" {
+				if err = writeStringLn(writer, s); err != nil {
+					return
+				}
+
+				importStorage = importStorageStarted
+				storage.Reset()
 			} else {
-				if _, err = writer.WriteString(s); err != nil {
+				k, v, ok := splitKV(s, true)
+				if ok {
+					if err = writeKVLn(writer, k, v); err != nil {
+						return
+					}
+				} else if err = writeStringLn(writer, s); err != nil {
 					return
 				}
-				if err = writer.WriteByte('\n'); err != nil {
-					return
-				}
-			}
-		} else if s == "dr_import_storages:" {
-			if _, err = writer.WriteString(s); err != nil {
-				return
-			}
-			if err = writer.WriteByte('\n'); err != nil {
-				return
-			}
-			importStorage = importStorageWant
-			storage.Reset()
-		} else {
-			if _, err = writer.WriteString(s); err != nil {
-				return
-			}
-			if err = writer.WriteByte('\n'); err != nil {
-				return
 			}
 		}
 	}
 
-	if importStorage == importStorageStarted {
-		if rErr := storage.Remap(g.StorageDomains); rErr != nil {
-			remapErrs = append(remapErrs, rErr)
+	if (importStorage == importStorageStarted || importStorage == importStorageWant) && storage.StorageType != "" {
+		if success, rErr := storage.Remap(g.StorageDomains); rErr != nil {
+			if success {
+				remapWarnings = append(remapWarnings, rErr)
+			} else {
+				err = rErr
+				return
+			}
 		}
 		if err = storage.Write(writer); err != nil {
-			return err
+			return
 		}
 	}
 
@@ -470,9 +627,6 @@ func (g GenerateVars) writeAnsibleVarsFile(template, varFile string) (err error)
 	err = scanner.Err()
 	if err != nil {
 		return
-	}
-	if len(remapErrs) > 0 {
-		err = remapErrs[0]
 	}
 
 	return

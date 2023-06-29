@@ -11,21 +11,44 @@ import (
 	"github.com/google/go-cmp/cmp"
 )
 
+func errStrs(errs []error) (out []string) {
+	out = make([]string, len(errs))
+	for i := 0; i < len(errs); i++ {
+		out[i] = errs[i].Error()
+	}
+	return
+}
+
 func TestGenerateVars_writeAnsibleVarsFile(t *testing.T) {
 	g := GenerateVars{
-		SecondaryUrl: "https://saengine2.localdomain/ovirt-engine/api",
+		SecondaryUrl:      "https://saengine2.localdomain/ovirt-engine/api",
+		SecondaryUsername: "admin@internal",
 		StorageDomains: []Storage{
 			{
 				StorageType:   "nfs",
-				PrimaryName:   "nfs_dom",
 				PrimaryPath:   "/nfs_dom_dr/",
 				PrimaryAddr:   "10.1.1.2",
-				SecondaryName: "nfs_dom",
 				SecondaryPath: "/nfs_dom_dr2/",
+				SecondaryAddr: "10.1.2.2",
+			},
+			// partial, only address
+			{
+				StorageType:   "nfs",
+				PrimaryAddr:   "10.1.1.3",
 				SecondaryAddr: "10.1.2.3",
+			},
+			// partial, only path
+			{
+				StorageType:   "nfs",
+				PrimaryPath:   "/nfs_dom_dr_4/",
+				SecondaryPath: "/nfs_dom_dr2_4/",
 			},
 		},
 	}
+	wantWarns := []string{
+		`storage map for nfs_dom_2 not found`,
+	}
+
 	f, err := os.CreateTemp("", "")
 	if err != nil {
 		t.Fatal(err)
@@ -40,8 +63,13 @@ func TestGenerateVars_writeAnsibleVarsFile(t *testing.T) {
 
 	defer os.Remove(varFile)
 
-	if err := g.writeAnsibleVarsFile(template, varFile); err != nil {
+	if warns, err := g.writeAnsibleVarsFile(template, varFile); err != nil {
 		t.Fatalf("GenerateVars.writeAnsibleVarsFile() error = %v", err)
+	} else {
+		warnsStr := errStrs(warns)
+		if !reflect.DeepEqual(warnsStr, wantWarns) {
+			t.Errorf("GenerateVars.writeAnsibleVarsFile() warnings\n%#q\nwant\n%#q", warnsStr, wantWarns)
+		}
 	}
 
 	b, err := os.ReadFile(varFile)
