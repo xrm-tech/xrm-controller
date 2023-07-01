@@ -25,23 +25,12 @@ func TestGenerateVars_writeAnsibleVarsFile(t *testing.T) {
 		SecondaryUsername: "admin@internal",
 		StorageDomains: []Storage{
 			{
-				StorageType:   "nfs",
+				PrimaryType:   "nfs",
 				PrimaryPath:   "/nfs_dom_dr/",
 				PrimaryAddr:   "10.1.1.2",
+				SecondaryType: "nfs",
 				SecondaryPath: "/nfs_dom_dr2/",
 				SecondaryAddr: "10.1.2.2",
-			},
-			// partial, only address
-			{
-				StorageType:   "nfs",
-				PrimaryAddr:   "10.1.1.3",
-				SecondaryAddr: "10.1.2.3",
-			},
-			// partial, only path
-			{
-				StorageType:   "nfs",
-				PrimaryPath:   "/nfs_dom_dr_4/",
-				SecondaryPath: "/nfs_dom_dr2_4/",
 			},
 		},
 	}

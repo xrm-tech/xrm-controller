@@ -127,11 +127,12 @@ func startBytes(s string, r rune) (n int) {
 }
 
 type Storage struct {
-	StorageType   string   `json:"primary_type" validate:"required"`
+	PrimaryType   string   `json:"primary_type" validate:"required"`
 	PrimaryName   string   `json:"-"`
 	PrimaryDC     string   `json:"-"`
 	PrimaryPath   string   `json:"primary_path" validate:"required"`
 	PrimaryAddr   string   `json:"primary_addr" validate:"required"`
+	SecondaryType string   `json:"secondary_type" validate:"required"`
 	SecondaryName string   `json:"-"`
 	SecondaryDC   string   `json:"-"`
 	SecondaryPath string   `json:"secondary_path" validate:"required"`
@@ -145,11 +146,12 @@ type Storage struct {
 // }
 
 func (m *Storage) Reset() {
-	m.StorageType = ""
+	m.PrimaryType = ""
 	m.PrimaryDC = ""
 	m.PrimaryName = ""
 	m.PrimaryPath = ""
 	m.PrimaryAddr = ""
+	m.SecondaryType = ""
 	m.SecondaryDC = ""
 	m.SecondaryName = ""
 	m.SecondaryPath = ""
@@ -167,7 +169,8 @@ func (m *Storage) Set(s string) {
 		v = strings.TrimPrefix(v, "# ")
 		switch k {
 		case "dr_domain_type":
-			m.StorageType = v
+			m.PrimaryType = v
+			m.SecondaryType = v
 		case "dr_primary_name":
 			m.PrimaryName = v
 		case "dr_primary_dc_name":
@@ -194,16 +197,13 @@ func (m *Storage) Set(s string) {
 
 func (m *Storage) Remap(storageDomains []Storage) (bool, error) {
 	for _, domain := range storageDomains {
-		if m.StorageType != domain.StorageType {
+		if m.PrimaryType != domain.PrimaryType || domain.PrimaryType != domain.SecondaryType {
 			continue
 		}
 		if domain.PrimaryName != "" && m.PrimaryName != domain.PrimaryName {
 			continue
 		}
-		if domain.PrimaryAddr != "" && m.PrimaryAddr != domain.PrimaryAddr {
-			continue
-		}
-		if domain.PrimaryPath != "" && m.PrimaryPath != domain.PrimaryPath {
+		if m.PrimaryAddr != domain.PrimaryAddr || m.PrimaryPath != domain.PrimaryPath {
 			continue
 		}
 
@@ -229,7 +229,7 @@ func (m *Storage) Remap(storageDomains []Storage) (bool, error) {
 }
 
 func (m *Storage) Write(w *bufio.Writer) error {
-	if err := writeEntryLn(w, "- dr_domain_type: ", m.StorageType); err != nil {
+	if err := writeEntryLn(w, "- dr_domain_type: ", m.PrimaryType); err != nil {
 		return err
 	}
 
@@ -429,80 +429,6 @@ func (g GenerateVars) writeAnsibleVarsFile(template, varFile string) (remapWarni
 	scanner := bufio.NewScanner(in)
 	for scanner.Scan() {
 		s := scanner.Text()
-		// if blankRe.MatchString(s) {
-		// 	if importStorage == importStorageStarted {
-		// 		if strings.Contains(s, "# Fill in the empty properties") {
-		// 			continue
-		// 		}
-		// 		if strings.HasPrefix(s, "#") {
-		// 			if success, rErr := storage.Remap(g.StorageDomains); rErr != nil {
-		// 				if success {
-		// 					remapWarnings = append(remapWarnings, rErr)
-		// 				} else {
-		// 					err = rErr
-		// 					return
-		// 				}
-		// 			}
-		// 			if err = storage.Write(writer); err != nil {
-		// 				return
-		// 			}
-		// 			importStorage = importStorageNone
-		// 			if err = writer.WriteByte('\n'); err != nil {
-		// 				return
-		// 			}
-		// 			if _, err = writer.WriteString(s); err != nil {
-		// 				return
-		// 			}
-		// 			if err = writer.WriteByte('\n'); err != nil {
-		// 				return
-		// 			}
-		// 			continue
-		// 		}
-		// 	}
-		// 	if _, err = writer.WriteString(s); err != nil {
-		// 		return
-		// 	}
-		// 	if err = writer.WriteByte('\n'); err != nil {
-		// 		return
-		// 	}
-		// 	continue
-		// } else if importStorage == importStorageWant {
-		// 	if strings.HasPrefix(s, "- ") {
-		// 		importStorage = importStorageStarted
-		// 		storage.Set(utils.Clone(s[2:]))
-		// 		continue
-		// 	} else {
-		// 		importStorage = importStorageNone
-		// 	}
-		// } else if importStorage == importStorageStarted {
-		// 	if strings.HasPrefix(s, "  ") {
-		// 		storage.Set(utils.Clone(s[2:]))
-		// 		continue
-		// 	} else if strings.HasPrefix(s, "- ") {
-		// 		storage.Reset()
-		// 		storage.Set(utils.Clone(s[2:]))
-		// 		continue
-		// 	} else if s == "" {
-		// 		continue
-		// 	} else {
-		// 		if success, rErr := storage.Remap(g.StorageDomains); rErr != nil {
-		// 			if success {
-		// 				remapWarnings = append(remapWarnings, rErr)
-		// 			} else {
-		// 				err = rErr
-		// 				return
-		// 			}
-		// 		}
-		// 		if err = storage.Write(writer); err != nil {
-		// 			return
-		// 		}
-		// 		importStorage = importStorageNone
-		// 		if err = writer.WriteByte('\n'); err != nil {
-		// 			return
-		// 		}
-		// 	}
-		// }
-
 		switch importStorage {
 		case importStorageStarted:
 			if strings.HasPrefix(s, "- ") {
@@ -519,7 +445,7 @@ func (g GenerateVars) writeAnsibleVarsFile(template, varFile string) (remapWarni
 			}
 		case importStorageWant:
 			if strings.HasPrefix(s, "- ") {
-				if storage.StorageType != "" {
+				if storage.PrimaryType != "" {
 					// flush map
 					if success, rErr := storage.Remap(g.StorageDomains); rErr != nil {
 						if success {
@@ -528,8 +454,7 @@ func (g GenerateVars) writeAnsibleVarsFile(template, varFile string) (remapWarni
 							err = rErr
 							return
 						}
-					}
-					if err = storage.Write(writer); err != nil {
+					} else if err = storage.Write(writer); err != nil {
 						return
 					}
 				}
@@ -546,7 +471,7 @@ func (g GenerateVars) writeAnsibleVarsFile(template, varFile string) (remapWarni
 				storage.Set(s[2:])
 			} else {
 				// break map
-				if storage.StorageType != "" {
+				if storage.PrimaryType != "" {
 					if success, rErr := storage.Remap(g.StorageDomains); rErr != nil {
 						if success {
 							remapWarnings = append(remapWarnings, rErr)
@@ -554,8 +479,7 @@ func (g GenerateVars) writeAnsibleVarsFile(template, varFile string) (remapWarni
 							err = rErr
 							return
 						}
-					}
-					if err = storage.Write(writer); err != nil {
+					} else if err = storage.Write(writer); err != nil {
 						return
 					}
 				}
@@ -606,7 +530,7 @@ func (g GenerateVars) writeAnsibleVarsFile(template, varFile string) (remapWarni
 		}
 	}
 
-	if (importStorage == importStorageStarted || importStorage == importStorageWant) && storage.StorageType != "" {
+	if (importStorage == importStorageStarted || importStorage == importStorageWant) && storage.PrimaryType != "" {
 		if success, rErr := storage.Remap(g.StorageDomains); rErr != nil {
 			if success {
 				remapWarnings = append(remapWarnings, rErr)
@@ -614,8 +538,7 @@ func (g GenerateVars) writeAnsibleVarsFile(template, varFile string) (remapWarni
 				err = rErr
 				return
 			}
-		}
-		if err = storage.Write(writer); err != nil {
+		} else if err = storage.Write(writer); err != nil {
 			return
 		}
 	}

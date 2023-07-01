@@ -17,10 +17,11 @@ func Test_bodyPasswordCleanup(t *testing.T) {
 		SecondaryPassword: "_SECURE_",
 		StorageDomains: []ovirt.Storage{
 			{
-				StorageType:   "nfs",
+				PrimaryType:   "nfs",
 				PrimaryName:   "nfs_dom",
 				PrimaryPath:   "/nfs_dom_dr/",
 				PrimaryAddr:   "10.1.1.2",
+				SecondaryType: "nfs",
 				SecondaryName: "nfs_dom",
 				SecondaryPath: "/nfs_dom_dr2/",
 				SecondaryAddr: "10.1.2.3",
@@ -36,10 +37,11 @@ func Test_bodyPasswordCleanup(t *testing.T) {
 		SecondaryPassword: "<STRIPPED>",
 		StorageDomains: []ovirt.Storage{
 			{
-				StorageType:   "nfs",
+				PrimaryType:   "nfs",
 				PrimaryName:   "nfs_dom",
 				PrimaryPath:   "/nfs_dom_dr/",
 				PrimaryAddr:   "10.1.1.2",
+				SecondaryType: "nfs",
 				SecondaryName: "nfs_dom",
 				SecondaryPath: "/nfs_dom_dr2/",
 				SecondaryAddr: "10.1.2.3",

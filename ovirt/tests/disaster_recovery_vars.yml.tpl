@@ -43,40 +43,6 @@ dr_import_storages:
   dr_secondary_dc_name: # Default
   dr_secondary_path: # /nfs_dom_dr_2/
   dr_secondary_address: # 10.1.1.2
-- dr_domain_type: nfs
-  dr_wipe_after_delete: False
-  dr_backup: False
-  dr_critical_space_action_blocker: 5
-  dr_storage_domain_type: data
-  dr_warning_low_space: 10
-  dr_primary_name: nfs_dom_3
-  dr_primary_master_domain: True
-  dr_primary_dc_name: Default
-  dr_primary_path: /nfs_dom_dr_3/
-  dr_primary_address: 10.1.1.3
-  # Fill in the empty properties related to the secondary site
-  dr_secondary_name: # nfs_dom_3
-  dr_secondary_master_domain: # True
-  dr_secondary_dc_name: # Default
-  dr_secondary_path: # /nfs_dom_dr_3/
-  dr_secondary_address: # 10.1.1.3
-- dr_domain_type: nfs
-  dr_wipe_after_delete: False
-  dr_backup: False
-  dr_critical_space_action_blocker: 5
-  dr_storage_domain_type: data
-  dr_warning_low_space: 10
-  dr_primary_name: nfs_dom_4
-  dr_primary_master_domain: True
-  dr_primary_dc_name: Default
-  dr_primary_path: /nfs_dom_dr_4/
-  dr_primary_address: 10.1.1.4
-  # Fill in the empty properties related to the secondary site
-  dr_secondary_name: # nfs_dom_4
-  dr_secondary_master_domain: # True
-  dr_secondary_dc_name: # Default
-  dr_secondary_path: # /nfs_dom_dr_4/
-  dr_secondary_address: # 10.1.1.4
 
 # Mapping for cluster
 dr_cluster_mappings:
