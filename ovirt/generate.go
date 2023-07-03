@@ -398,12 +398,11 @@ func (g GenerateVars) writeAnsiblePwdDile(pwdFile string) error {
 	return err
 }
 
-type importStorageState int8
+type importState int8
 
 const (
-	importStorageNone = iota
-	importStorageWant
-	importStorageStarted
+	importNone importState = iota
+	importStorage
 )
 
 func (g GenerateVars) writeAnsibleVarsFile(template, varFile string) (remapWarnings []error, err error) {
@@ -422,28 +421,15 @@ func (g GenerateVars) writeAnsibleVarsFile(template, varFile string) (remapWarni
 	writer := bufio.NewWriter(out)
 
 	var (
-		importStorage importStorageState
-		storage       Storage
+		importPhase importState
+		storage     Storage
 	)
 	indent := 0
 	scanner := bufio.NewScanner(in)
 	for scanner.Scan() {
 		s := scanner.Text()
-		switch importStorage {
-		case importStorageStarted:
-			if strings.HasPrefix(s, "- ") {
-				importStorage = importStorageWant
-				indent = startBytes(s[1:], ' ') + 1
-				if indent != 2 {
-					err = ErrImportStorageItem
-					return
-				}
-				storage.Set(s[indent:])
-			} else {
-				err = ErrImportStorageItem
-				return
-			}
-		case importStorageWant:
+		switch importPhase {
+		case importStorage:
 			if strings.HasPrefix(s, "- ") {
 				if storage.PrimaryType != "" {
 					// flush map
@@ -460,7 +446,6 @@ func (g GenerateVars) writeAnsibleVarsFile(template, varFile string) (remapWarni
 				}
 				storage.Reset()
 
-				importStorage = importStorageWant
 				indent = startBytes(s[1:], ' ') + 1
 				if indent != 2 {
 					err = ErrImportStorageItem
@@ -484,7 +469,7 @@ func (g GenerateVars) writeAnsibleVarsFile(template, varFile string) (remapWarni
 					}
 				}
 
-				importStorage = importStorageNone
+				importPhase = importNone
 				storage.Reset()
 
 				k, v, ok := splitKV(s, true)
@@ -515,7 +500,7 @@ func (g GenerateVars) writeAnsibleVarsFile(template, varFile string) (remapWarni
 					return
 				}
 
-				importStorage = importStorageStarted
+				importPhase = importStorage
 				storage.Reset()
 			} else {
 				k, v, ok := splitKV(s, true)
@@ -530,7 +515,7 @@ func (g GenerateVars) writeAnsibleVarsFile(template, varFile string) (remapWarni
 		}
 	}
 
-	if (importStorage == importStorageStarted || importStorage == importStorageWant) && storage.PrimaryType != "" {
+	if (importStorage == importStorage) && storage.PrimaryType != "" {
 		if success, rErr := storage.Remap(g.StorageDomains); rErr != nil {
 			if success {
 				remapWarnings = append(remapWarnings, rErr)
