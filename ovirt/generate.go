@@ -8,6 +8,7 @@ import (
 	"os/exec"
 	"path"
 	"regexp"
+	"strconv"
 	"strings"
 	"time"
 	"unicode/utf8"
@@ -20,8 +21,8 @@ import (
 )
 
 var (
-	ErrImportStorageItem = errors.New("dr_import_storages item parse error")
-
+	ErrImportStorageItem   = errors.New("dr_import_storages item parse error")
+	ErrStorageRemapResult  = errors.New("dr_import_storages remap result epmty")
 	ErrTemplateDirNotExist = errors.New("ovirt template dir not exist")
 	ErrDirAlreadyExist     = errors.New("dir already exist")
 	ErrVarFileNotExist     = errors.New("var file not exist")
@@ -195,8 +196,8 @@ func (m *Storage) Set(s string) {
 	}
 }
 
-func (m *Storage) Remap(storageDomains []Storage) (bool, error) {
-	for _, domain := range storageDomains {
+func (m *Storage) Remap(storageDomains []Storage) (ok bool, msgs error) {
+	for n, domain := range storageDomains {
 		if m.PrimaryType != domain.PrimaryType || domain.PrimaryType != domain.SecondaryType {
 			continue
 		}
@@ -223,9 +224,9 @@ func (m *Storage) Remap(storageDomains []Storage) (bool, error) {
 		if domain.SecondaryPath != "" {
 			m.SecondaryPath = domain.SecondaryPath
 		}
-		return true, nil
+		return true, errors.New("storage map for " + m.PrimaryName + " found at item " + strconv.Itoa(n))
 	}
-	return true, errors.New("storage map for " + m.PrimaryName + " not found")
+	return false, errors.New("storage map for " + m.PrimaryName + " not found")
 }
 
 func (m *Storage) Write(w *bufio.Writer) error {
@@ -425,6 +426,7 @@ func (g GenerateVars) writeAnsibleVarsFile(template, varFile string) (remapWarni
 		storage     Storage
 	)
 	indent := 0
+	hasStorages := false
 	scanner := bufio.NewScanner(in)
 	for scanner.Scan() {
 		s := scanner.Text()
@@ -433,15 +435,15 @@ func (g GenerateVars) writeAnsibleVarsFile(template, varFile string) (remapWarni
 			if strings.HasPrefix(s, "- ") {
 				if storage.PrimaryType != "" {
 					// flush map
-					if success, rErr := storage.Remap(g.StorageDomains); rErr != nil {
-						if success {
-							remapWarnings = append(remapWarnings, rErr)
-						} else {
-							err = rErr
+					ok, rErr := storage.Remap(g.StorageDomains)
+					if rErr != nil {
+						remapWarnings = append(remapWarnings, rErr)
+					}
+					if ok {
+						hasStorages = true
+						if err = storage.Write(writer); err != nil {
 							return
 						}
-					} else if err = storage.Write(writer); err != nil {
-						return
 					}
 				}
 				storage.Reset()
@@ -457,15 +459,15 @@ func (g GenerateVars) writeAnsibleVarsFile(template, varFile string) (remapWarni
 			} else {
 				// break map
 				if storage.PrimaryType != "" {
-					if success, rErr := storage.Remap(g.StorageDomains); rErr != nil {
-						if success {
-							remapWarnings = append(remapWarnings, rErr)
-						} else {
-							err = rErr
+					ok, rErr := storage.Remap(g.StorageDomains)
+					if rErr != nil {
+						remapWarnings = append(remapWarnings, rErr)
+					}
+					if ok {
+						hasStorages = true
+						if err = storage.Write(writer); err != nil {
 							return
 						}
-					} else if err = storage.Write(writer); err != nil {
-						return
 					}
 				}
 
@@ -516,15 +518,15 @@ func (g GenerateVars) writeAnsibleVarsFile(template, varFile string) (remapWarni
 	}
 
 	if importPhase == importStorage && storage.PrimaryType != "" {
-		if success, rErr := storage.Remap(g.StorageDomains); rErr != nil {
-			if success {
-				remapWarnings = append(remapWarnings, rErr)
-			} else {
-				err = rErr
+		ok, rErr := storage.Remap(g.StorageDomains)
+		if rErr != nil {
+			remapWarnings = append(remapWarnings, rErr)
+		}
+		if ok {
+			hasStorages = true
+			if err = storage.Write(writer); err != nil {
 				return
 			}
-		} else if err = storage.Write(writer); err != nil {
-			return
 		}
 	}
 
@@ -535,6 +537,9 @@ func (g GenerateVars) writeAnsibleVarsFile(template, varFile string) (remapWarni
 	err = scanner.Err()
 	if err != nil {
 		return
+	}
+	if !hasStorages {
+		err = ErrStorageRemapResult
 	}
 
 	return
