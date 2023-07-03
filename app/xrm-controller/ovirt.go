@@ -4,6 +4,7 @@ import (
 	"net/http"
 
 	"github.com/gofiber/fiber/v2"
+	"github.com/rs/zerolog"
 	"github.com/xrm-tech/xrm-controller/ovirt"
 	"github.com/xrm-tech/xrm-controller/pkg/utils"
 )
@@ -29,6 +30,10 @@ func oVirtGenerate(c *fiber.Ctx) (err error) {
 		return fiber.NewError(http.StatusBadRequest, err.Error())
 	}
 	name := c.Params("name")
+
+	if Cfg.Logger.GetLevel() == zerolog.DebugLevel || Cfg.Logger.GetLevel() == zerolog.TraceLevel {
+		c.Context().SetUserValue("req_body", utils.UnsafeString(bodyPasswordCleanup(c.Request().Body())))
+	}
 
 	if out, err = sitesConfig.Generate(name, Cfg.OVirtStoreDir); err == nil {
 		return c.Status(http.StatusOK).SendString(out)
