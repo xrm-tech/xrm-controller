@@ -515,7 +515,7 @@ func (g GenerateVars) writeAnsibleVarsFile(template, varFile string) (remapWarni
 		}
 	}
 
-	if (importStorage == importStorage) && storage.PrimaryType != "" {
+	if importPhase == importStorage && storage.PrimaryType != "" {
 		if success, rErr := storage.Remap(g.StorageDomains); rErr != nil {
 			if success {
 				remapWarnings = append(remapWarnings, rErr)
