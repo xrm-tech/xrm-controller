@@ -86,6 +86,8 @@ func TestGenerateVars_writeAnsibleVarsFile(t *testing.T) {
 
 			defer os.Remove(varFile)
 
+			StripStorageDomains(g.StorageDomains)
+
 			if warns, err := g.writeAnsibleVarsFile(template, varFile); err != test.wantErr {
 				t.Fatalf("GenerateVars.writeAnsibleVarsFile() error = %v, want = %v", err, test.wantErr)
 			} else if err == nil {

@@ -127,6 +127,15 @@ func startBytes(s string, r rune) (n int) {
 	return
 }
 
+func StripStorageDomains(s []Storage) {
+	for i := range s {
+		if s[i].PrimaryType == "nfs" {
+			s[i].PrimaryPath = strings.TrimRight(s[i].PrimaryPath, "/")
+			s[i].SecondaryPath = strings.TrimRight(s[i].SecondaryPath, "/")
+		}
+	}
+}
+
 type Storage struct {
 	PrimaryType   string   `json:"primary_type" validate:"required"`
 	PrimaryName   string   `json:"-"`
@@ -197,6 +206,10 @@ func (m *Storage) Set(s string) {
 }
 
 func (m *Storage) Remap(storageDomains []Storage) (ok bool, msgs error) {
+	if m.PrimaryType == "nfs" {
+		m.PrimaryPath = strings.TrimRight(m.PrimaryPath, "/")
+		m.SecondaryPath = strings.TrimRight(m.SecondaryPath, "/")
+	}
 	for n, domain := range storageDomains {
 		if m.PrimaryType != domain.PrimaryType || domain.PrimaryType != domain.SecondaryType {
 			continue

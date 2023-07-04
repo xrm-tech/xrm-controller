@@ -12,11 +12,11 @@ dr_import_storages:
 - dr_domain_type: nfs
   dr_primary_name: nfs_dom
   dr_primary_dc_name: Default
-  dr_primary_path: /nfs_dom_dr/
+  dr_primary_path: /nfs_dom_dr
   dr_primary_address: 10.1.1.2
   dr_secondary_name: nfs_dom
   dr_secondary_dc_name: Default
-  dr_secondary_path: /nfs_dom_dr2/
+  dr_secondary_path: /nfs_dom_dr2
   dr_secondary_address: 10.1.2.2
   dr_wipe_after_delete: False
   dr_backup: False

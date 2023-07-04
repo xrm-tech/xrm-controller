@@ -25,6 +25,8 @@ func oVirtGenerate(c *fiber.Ctx) (err error) {
 		c.Context().SetUserValue("req_body", utils.UnsafeString(bodyPasswordCleanup(c.Request().Body())))
 		return fiber.NewError(http.StatusBadRequest, err.Error())
 	}
+
+	ovirt.StripStorageDomains(sitesConfig.StorageDomains)
 	if err := sitesConfig.Validate(); err != nil {
 		c.Context().SetUserValue("req_body", utils.UnsafeString(bodyPasswordCleanup(c.Request().Body())))
 		return fiber.NewError(http.StatusBadRequest, err.Error())

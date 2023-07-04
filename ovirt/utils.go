@@ -60,10 +60,3 @@ var nameRe = regexp.MustCompile(`^[a-zA-Z_\-0-9]+$`)
 func validateName(name string) bool {
 	return name != "template" && nameRe.MatchString(name)
 }
-
-// func Validate(dir string) error {
-// 	template := path.Join(dir, "template")
-// 	if !utils.DirExists(template) {
-// 		return ErrTemplateDirNotExist
-// 	}
-// }
