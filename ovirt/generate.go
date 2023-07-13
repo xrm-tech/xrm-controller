@@ -401,8 +401,7 @@ func (g GenerateVars) Generate(name, dir string) (storages string, out string, e
 		// TODO: reduce verbose ?
 		if out, err = utils.ExecCmd(dir+"/generate.log", time.Minute*10, ansiblePath, ansibleGeneratePlaybook, "-t", ansibleDrTag, "-e", extraVars, "-vvvvv"); err == nil {
 			if utils.FileExists(ansibleVarFileTpl) {
-				err = g.writeAnsibleFailbackFile(ansibleFailoverPlaybook, ansibleFailbackPlaybook)
-				if err == nil {
+				if err = g.writeAnsibleFailbackFile(ansibleFailoverPlaybook, ansibleFailbackPlaybook); err == nil {
 					storages, warnings, err = g.writeAnsibleVarsFile(ansibleVarFileTpl, ansibleVarFile)
 				}
 			} else {
@@ -415,12 +414,14 @@ func (g GenerateVars) Generate(name, dir string) (storages string, out string, e
 
 	if len(warnings) > 0 {
 		var buf strings.Builder
-		buf.WriteString(out)
-		buf.WriteString("\nWARNINGS:\n")
+		buf.WriteString("WARNINGS:\n")
 		for _, warn := range warnings {
 			buf.WriteString(warn.Error())
 			buf.WriteByte('\n')
 		}
+		buf.WriteByte('\n')
+		buf.WriteString(out)
+		out = buf.String()
 	}
 
 	return
