@@ -251,7 +251,7 @@ func (m *Storage) Remap(storageDomains []Storage) (ok bool, msgs error) {
 		}
 		storageDomains[n].Found = true
 		key := m.SecondaryType + "://" + m.SecondaryAddr + ":" + m.SecondaryPath
-		return true, errors.New("storage " + m.PrimaryName + " remapped with name " + m.SecondaryName + " " + key)
+		return true, errors.New("storage " + m.PrimaryName + " remapped with name " + m.SecondaryName + " as " + key)
 	}
 	return false, errors.New("storage for map " + m.PrimaryName + " not found")
 }
