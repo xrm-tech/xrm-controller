@@ -53,24 +53,6 @@ func TestGenerateVars_writeAnsibleVarsFile(t *testing.T) {
 		{
 			g: GenerateVars{
 				SecondaryUrl:      "https://saengine2.localdomain/ovirt-engine/api",
-				SecondaryUsername: "admin@internal",
-				StorageDomains: []Storage{
-					{
-						PrimaryType:   "nfs",
-						PrimaryPath:   "/non_exist/",
-						PrimaryAddr:   "10.1.1.2",
-						SecondaryType: "nfs",
-						SecondaryPath: "/non_exist2/",
-						SecondaryAddr: "10.1.2.2",
-					},
-				},
-			},
-			template: "disaster_recovery_vars.yml.tpl",
-			wantErr:  ErrStorageRemapResult,
-		},
-		{
-			g: GenerateVars{
-				SecondaryUrl:      "https://saengine2.localdomain/ovirt-engine/api",
 				SecondaryUsername: "admin@ovirt@internal",
 				StorageDomains: []Storage{
 					{
@@ -88,6 +70,55 @@ func TestGenerateVars_writeAnsibleVarsFile(t *testing.T) {
 			wantWarns: []string{
 				`storage map for nfs_d not found`,
 				`storage map for nfstst found at item 0`,
+			},
+		},
+		{
+			g: GenerateVars{
+				SecondaryUrl:      "https://saengine2.localdomain/ovirt-engine/api",
+				SecondaryUsername: "admin@internal",
+				StorageDomains: []Storage{
+					{
+						PrimaryType:   "nfs",
+						PrimaryPath:   "/non_exist/",
+						PrimaryAddr:   "10.1.1.2",
+						SecondaryType: "nfs",
+						SecondaryPath: "/non_exist2/",
+						SecondaryAddr: "10.1.2.2",
+					},
+				},
+			},
+			template: "disaster_recovery_vars.yml.tpl",
+			wantErr:  ErrStorageRemapEmptyResult, // no storages in config remapped
+		},
+		{
+			g: GenerateVars{
+				SecondaryUrl:      "https://saengine2.localdomain/ovirt-engine/api",
+				SecondaryUsername: "admin@ovirt@internal",
+				StorageDomains: []Storage{
+					{
+						PrimaryType:   "nfs",
+						PrimaryPath:   "/nfs_tst/",
+						PrimaryAddr:   "192.168.1.210",
+						SecondaryType: "nfs",
+						SecondaryPath: "/nfs_tst2/",
+						SecondaryAddr: "192.168.2.210",
+					},
+					{
+						PrimaryType:   "nfs",
+						PrimaryPath:   "/non_exist/",
+						PrimaryAddr:   "10.1.1.2",
+						SecondaryType: "nfs",
+						SecondaryPath: "/non_exist2/",
+						SecondaryAddr: "10.1.2.2",
+					},
+				},
+			},
+			template:    "disaster_recovery_vars2.yml.tpl",
+			wantVarFile: "disaster_recovery_vars2.yml",
+			wantWarns: []string{
+				`storage map for nfs_d not found`,
+				`storage map for nfstst found at item 0`,
+				`storage map nfs://10.1.1.2:/non_exist not used`,
 			},
 		},
 	} {

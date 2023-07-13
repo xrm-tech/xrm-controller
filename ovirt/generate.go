@@ -21,11 +21,11 @@ import (
 )
 
 var (
-	ErrImportStorageItem   = errors.New("dr_import_storages item parse error")
-	ErrStorageRemapResult  = errors.New("dr_import_storages remap result epmty")
-	ErrTemplateDirNotExist = errors.New("ovirt template dir not exist")
-	ErrDirAlreadyExist     = errors.New("dir already exist")
-	ErrVarFileNotExist     = errors.New("var file not exist")
+	ErrImportStorageItem       = errors.New("dr_import_storages item parse error")
+	ErrStorageRemapEmptyResult = errors.New("dr_import_storages remap result epmty")
+	ErrTemplateDirNotExist     = errors.New("ovirt template dir not exist")
+	ErrDirAlreadyExist         = errors.New("dir already exist")
+	ErrVarFileNotExist         = errors.New("var file not exist")
 	// ansible
 	ansibleDrTag            = "generate_mapping"
 	ansibleGeneratePlaybook = "dr_generate.yml"
@@ -127,13 +127,24 @@ func startBytes(s string, r rune) (n int) {
 	return
 }
 
-func StripStorageDomains(s []Storage) {
-	for i := range s {
+func StripStorageDomains(s []Storage) []Storage {
+	pos := 0
+	exist := make(map[string]bool)
+	for i := 0; i < len(s); i++ {
 		if s[i].PrimaryType == "nfs" {
 			s[i].PrimaryPath = strings.TrimRight(s[i].PrimaryPath, "/")
 			s[i].SecondaryPath = strings.TrimRight(s[i].SecondaryPath, "/")
 		}
+		// cleanup from dulpicates
+		key := s[i].PrimaryType + "://" + s[i].PrimaryAddr + ":" + s[i].PrimaryPath
+		if _, ok := exist[key]; !ok {
+			s[pos] = s[i]
+			pos++
+			exist[key] = true
+		}
+
 	}
+	return s[:pos]
 }
 
 type Storage struct {
@@ -148,6 +159,7 @@ type Storage struct {
 	SecondaryPath string   `json:"secondary_path"`
 	SecondaryAddr string   `json:"secondary_addr"`
 	Additional    []string `json:"-"`
+	Found         bool     `json:"-"`
 }
 
 // {
@@ -237,6 +249,7 @@ func (m *Storage) Remap(storageDomains []Storage) (ok bool, msgs error) {
 		if domain.SecondaryPath != "" {
 			m.SecondaryPath = domain.SecondaryPath
 		}
+		storageDomains[n].Found = true
 		return true, errors.New("storage map for " + m.PrimaryName + " found at item " + strconv.Itoa(n))
 	}
 	return false, errors.New("storage map for " + m.PrimaryName + " not found")
@@ -511,7 +524,7 @@ func (g GenerateVars) writeAnsibleVarsFile(template, varFile string) (storages s
 		storage     Storage
 	)
 
-	StripStorageDomains(g.StorageDomains)
+	g.StorageDomains = StripStorageDomains(g.StorageDomains)
 
 	storagesSlice := make([]Storage, 0, 4)
 
@@ -639,7 +652,16 @@ func (g GenerateVars) writeAnsibleVarsFile(template, varFile string) (storages s
 		return
 	}
 	if !hasStorages {
-		err = ErrStorageRemapResult
+		err = ErrStorageRemapEmptyResult
+	}
+
+	for i, domain := range g.StorageDomains {
+		if domain.Found {
+			g.StorageDomains[i].Found = false
+		} else {
+			key := domain.PrimaryType + "://" + domain.PrimaryAddr + ":" + domain.PrimaryPath
+			remapWarnings = append(remapWarnings, errors.New("storage map "+key+" not used"))
+		}
 	}
 
 	if len(storagesSlice) > 0 {
