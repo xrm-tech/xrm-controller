@@ -414,7 +414,7 @@ func (g GenerateVars) Generate(name, dir string) (storages string, out string, e
 
 	if len(warnings) > 0 {
 		var buf strings.Builder
-		buf.WriteString("WARNINGS:\n")
+		buf.WriteString("STORAGES MESSAGES AND WARNINGS:\n")
 		for _, warn := range warnings {
 			buf.WriteString(warn.Error())
 			buf.WriteByte('\n')
