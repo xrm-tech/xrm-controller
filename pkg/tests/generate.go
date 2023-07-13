@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"strings"
 
 	"github.com/xrm-tech/xrm-controller/ovirt"
 )
@@ -39,7 +38,7 @@ func DoGenerate(request string, siteConfig *ovirt.GenerateVars, username, passwo
 	}
 	if wantInResp != "" {
 		s := string(body)
-		if !strings.Contains(s, wantInResp) {
+		if s != wantInResp {
 			return fmt.Errorf("/ovirt/generate/test = %q, want contain %q", s, wantInResp)
 		}
 	}

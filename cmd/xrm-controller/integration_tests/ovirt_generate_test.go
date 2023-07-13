@@ -10,7 +10,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/go-playground/validator/v10"
 	"github.com/rs/zerolog"
 	xrm "github.com/xrm-tech/xrm-controller/app/xrm-controller"
 	"github.com/xrm-tech/xrm-controller/ovirt"
@@ -56,7 +55,7 @@ func TestGenerate(t *testing.T) {
 		SecondaryPassword: os.Getenv("XRM_SECONDARY_PASSWORD"),
 	}
 	if err := siteConfig.Validate(); err != nil {
-		t.Fatal(utils.ValidatorError(err.(validator.ValidationErrors)))
+		t.Fatal(err)
 	}
 
 	if err := tests.DoGenerate(request, &siteConfig, "test2", "password2", http.StatusOK, ""); err != nil {

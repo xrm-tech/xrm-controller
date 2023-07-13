@@ -68,6 +68,28 @@ func TestGenerateVars_writeAnsibleVarsFile(t *testing.T) {
 			template: "disaster_recovery_vars.yml.tpl",
 			wantErr:  ErrStorageRemapResult,
 		},
+		{
+			g: GenerateVars{
+				SecondaryUrl:      "https://saengine2.localdomain/ovirt-engine/api",
+				SecondaryUsername: "admin@ovirt@internal",
+				StorageDomains: []Storage{
+					{
+						PrimaryType:   "nfs",
+						PrimaryPath:   "/nfs_tst/",
+						PrimaryAddr:   "192.168.1.210",
+						SecondaryType: "nfs",
+						SecondaryPath: "/nfs_tst2/",
+						SecondaryAddr: "192.168.2.210",
+					},
+				},
+			},
+			template:    "disaster_recovery_vars2.yml.tpl",
+			wantVarFile: "disaster_recovery_vars2.yml",
+			wantWarns: []string{
+				`storage map for nfs_d not found`,
+				`storage map for nfstst found at item 0`,
+			},
+		},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			g := test.g
@@ -86,9 +108,7 @@ func TestGenerateVars_writeAnsibleVarsFile(t *testing.T) {
 
 			defer os.Remove(varFile)
 
-			StripStorageDomains(g.StorageDomains)
-
-			if warns, err := g.writeAnsibleVarsFile(template, varFile); err != test.wantErr {
+			if _, warns, err := g.writeAnsibleVarsFile(template, varFile); err != test.wantErr {
 				t.Fatalf("GenerateVars.writeAnsibleVarsFile() error = %v, want = %v", err, test.wantErr)
 			} else if err == nil {
 				warnsStr := errStrs(warns)

@@ -66,7 +66,7 @@ func TestGenerateValidate(t *testing.T) {
 		},
 	}
 	// run without parameters
-	if err := tests.DoGenerate(request, &siteConfig, "test2", "password2", http.StatusBadRequest, "Field validation"); err != nil {
+	if err := tests.DoGenerate(request, &siteConfig, "test2", "password2", http.StatusBadRequest, "site_primary_url is empty\nsite_primary_username is empty\nsite_primary_password is empty\nsite_secondary_username is empty\nsite_secondary_password is empty\n"); err != nil {
 		t.Fatal(err)
 	}
 

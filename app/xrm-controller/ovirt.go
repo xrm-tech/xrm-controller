@@ -19,6 +19,7 @@ func oVirtDelete(c *fiber.Ctx) error {
 func oVirtGenerate(c *fiber.Ctx) (err error) {
 	var (
 		sitesConfig ovirt.GenerateVars
+		storages    string
 		out         string
 	)
 	if err = c.BodyParser(&sitesConfig); err != nil {
@@ -26,18 +27,25 @@ func oVirtGenerate(c *fiber.Ctx) (err error) {
 		return fiber.NewError(http.StatusBadRequest, err.Error())
 	}
 
-	ovirt.StripStorageDomains(sitesConfig.StorageDomains)
 	if err := sitesConfig.Validate(); err != nil {
 		c.Context().SetUserValue("req_body", utils.UnsafeString(bodyPasswordCleanup(c.Request().Body())))
 		return fiber.NewError(http.StatusBadRequest, err.Error())
 	}
 	name := c.Params("name")
 
+	ovirt.StripStorageDomains(sitesConfig.StorageDomains)
+
 	if Cfg.Logger.GetLevel() == zerolog.DebugLevel || Cfg.Logger.GetLevel() == zerolog.TraceLevel {
 		c.Context().SetUserValue("req_body", utils.UnsafeString(bodyPasswordCleanup(c.Request().Body())))
 	}
 
-	if out, err = sitesConfig.Generate(name, Cfg.OVirtStoreDir); err == nil {
+	storages, out, err = sitesConfig.Generate(name, Cfg.OVirtStoreDir)
+
+	if Cfg.Logger.GetLevel() == zerolog.DebugLevel || Cfg.Logger.GetLevel() == zerolog.TraceLevel {
+		c.Context().SetUserValue("storages", storages)
+	}
+
+	if err == nil {
 		return c.Status(http.StatusOK).SendString(out)
 	} else {
 		return fiber.NewError(http.StatusInternalServerError, err.Error()+"\n"+out)
