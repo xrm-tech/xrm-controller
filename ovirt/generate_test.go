@@ -47,7 +47,7 @@ func TestGenerateVars_writeAnsibleVarsFile(t *testing.T) {
 			wantVarFile: "disaster_recovery_vars.yml",
 			wantWarns: []string{
 				`storage nfs_dom remapped with name nfs_dom as nfs://10.1.2.2:/nfs_dom_dr2`,
-				`storage for map nfs_dom_2 not found`,
+				`storage map for nfs_dom_2 not found`,
 			},
 		},
 		{
@@ -68,7 +68,7 @@ func TestGenerateVars_writeAnsibleVarsFile(t *testing.T) {
 			template:    "disaster_recovery_vars2.yml.tpl",
 			wantVarFile: "disaster_recovery_vars2.yml",
 			wantWarns: []string{
-				`storage for map nfs_d not found`,
+				`storage map for nfs_d not found`,
 				`storage nfstst remapped with name nfstst as nfs://192.168.2.210:/nfs_tst2`,
 			},
 		},
@@ -116,7 +116,7 @@ func TestGenerateVars_writeAnsibleVarsFile(t *testing.T) {
 			template:    "disaster_recovery_vars2.yml.tpl",
 			wantVarFile: "disaster_recovery_vars2.yml",
 			wantWarns: []string{
-				`storage for map nfs_d not found`,
+				`storage map for nfs_d not found`,
 				`storage nfstst remapped with name nfstst as nfs://192.168.2.210:/nfs_tst2`,
 				`storage map nfs://10.1.1.2:/non_exist not used`,
 			},

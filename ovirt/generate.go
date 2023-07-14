@@ -253,7 +253,7 @@ func (m *Storage) Remap(storageDomains []Storage) (ok bool, msgs error) {
 		key := m.SecondaryType + "://" + m.SecondaryAddr + ":" + m.SecondaryPath
 		return true, errors.New("storage " + m.PrimaryName + " remapped with name " + m.SecondaryName + " as " + key)
 	}
-	return false, errors.New("storage for map " + m.PrimaryName + " not found")
+	return false, errors.New("storage map for " + m.PrimaryName + " not found")
 }
 
 func (m *Storage) Write(w *bufio.Writer) error {
