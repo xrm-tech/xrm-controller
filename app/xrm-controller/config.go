@@ -41,10 +41,10 @@ func RouterInit() (app *fiber.App) {
 	app.Use(basicauth.New(basicauth.Config{Users: Cfg.Users}))
 
 	// OVirt
-	app.Get("/ovirt/delete/:name<regex([a-zA-Z0-9_\\-]+)>", oVirtDelete)
-	app.Post("/ovirt/generate/:name<regex([a-zA-Z0-9_\\-]+)>", oVirtGenerate)
-	app.Get("/ovirt/failover/:name<regex([a-zA-Z0-9_\\-]+)>", oVirtFailover)
-	app.Get("/ovirt/failback/:name<regex([a-zA-Z0-9_\\-]+)>", oVirtFailback)
+	app.Get("/ovirt/delete/:name", oVirtDelete)
+	app.Post("/ovirt/generate/:name", oVirtGenerate)
+	app.Get("/ovirt/failover/:name", oVirtFailover)
+	app.Get("/ovirt/failback/:name", oVirtFailback)
 
 	return
 }
