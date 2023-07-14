@@ -82,3 +82,48 @@ func TestDelete(t *testing.T) {
 		t.Fatalf(fileName + " not cleaned")
 	}
 }
+
+// test name security issues like test/../../etc
+func TestDeleteFilter(t *testing.T) {
+	var err error
+
+	if xrm.Cfg.Listen, err = tests.GetFreeLocalAddr(); err != nil {
+		t.Fatal(err)
+	}
+	if xrm.Cfg.OVirtStoreDir, err = os.MkdirTemp("", "xrm-controller"); err != nil {
+		t.Fatal(err)
+	}
+	defer os.RemoveAll(xrm.Cfg.StoreDir)
+
+	request := "http://" + xrm.Cfg.Listen + "/ovirt/delete/test%2F..%2F..%2F..%2FetcTEST"
+	fileName := path.Join(xrm.Cfg.OVirtStoreDir, "test/disaster_recovery_vars.yml")
+
+	// create and start *fiber.App instance
+	xrm.Cfg.Logger = zerolog.New(os.Stdout)
+	xrm.Cfg.Users = map[string]string{"test1": "password1", "test2": "password2"}
+	app := xrm.RouterInit()
+	var wg sync.WaitGroup
+	wg.Add(1)
+	go func() {
+		wg.Done()
+		_ = app.Listen(xrm.Cfg.Listen)
+	}()
+	wg.Wait()
+	defer func() { _ = app.Shutdown() }()
+	time.Sleep(time.Millisecond * 10)
+
+	// run first test (no disaster_recovery_vars.yml), but must success
+	req, _ := http.NewRequest("GET", request, nil)
+	req.SetBasicAuth("test1", "password1")
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatalf("/ovirt/cleanup/test error = %v", err)
+	}
+	body, err := io.ReadAll(resp.Body)
+	if resp.StatusCode != http.StatusInternalServerError || err != nil || string(body) != "name is invalid" {
+		t.Fatalf("/ovirt/cleanup/test%%2F..%%2F..%%2F..%%2FetcTEST = %d (%s), error is %v", resp.StatusCode, string(body), err)
+	}
+	if utils.FileExists(fileName) {
+		t.Fatalf(fileName + " not cleaned")
+	}
+}

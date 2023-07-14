@@ -79,6 +79,7 @@ func TestGenerateValidate(t *testing.T) {
 	// }
 }
 
+// test name security issues like test/../../etc
 func TestGenerateFiltering(t *testing.T) {
 	var err error
 
@@ -90,7 +91,7 @@ func TestGenerateFiltering(t *testing.T) {
 	}
 	defer os.RemoveAll(xrm.Cfg.StoreDir)
 
-	request := "http://" + xrm.Cfg.Listen + "/ovirt/generate/test%2F..%2F..%2F..%2Fetc"
+	request := "http://" + xrm.Cfg.Listen + "/ovirt/generate/test%2F..%2F..%2F..%2FetcTEST"
 	// fileName := path.Join(ovirtStoreDir, "test/disaster_recovery_vars.yml")
 
 	// create and start *fiber.App instance
