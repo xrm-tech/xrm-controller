@@ -151,13 +151,13 @@ type Storage struct {
 	PrimaryType   string   `json:"primary_type"`
 	PrimaryName   string   `json:"-"`
 	PrimaryDC     string   `json:"-"`
-	PrimaryPath   string   `json:"primary_path"`
-	PrimaryAddr   string   `json:"primary_addr"`
+	PrimaryPath   string   `json:"primary_path"` // nfs
+	PrimaryAddr   string   `json:"primary_addr"` // nfs, for fcp - dr_domain_id
 	SecondaryType string   `json:"secondary_type"`
 	SecondaryName string   `json:"-"`
 	SecondaryDC   string   `json:"-"`
-	SecondaryPath string   `json:"secondary_path"`
-	SecondaryAddr string   `json:"secondary_addr"`
+	SecondaryPath string   `json:"secondary_path"` // nfs
+	SecondaryAddr string   `json:"secondary_addr"` // nfs, for fcp - verify dr_domain_id
 	Additional    []string `json:"-"`
 	Found         bool     `json:"-"`
 }
@@ -197,18 +197,21 @@ func (m *Storage) Set(s string) {
 			m.PrimaryName = v
 		case "dr_primary_dc_name":
 			m.PrimaryDC = v
-		case "dr_primary_path":
+		case "dr_primary_path": // nfs
 			m.PrimaryPath = v
-		case "dr_primary_address":
+		case "dr_primary_address": // nfs
 			m.PrimaryAddr = v
 		case "dr_secondary_name":
 			m.SecondaryName = v
 		case "dr_secondary_dc_name":
 			m.SecondaryDC = v
-		case "dr_secondary_address":
+		case "dr_secondary_address": // nfs
 			m.SecondaryAddr = v
-		case "dr_secondary_path":
+		case "dr_secondary_path": // nfs
 			m.SecondaryPath = v
+		case "dr_domain_id": // fcp
+			m.PrimaryAddr = v
+			m.SecondaryAddr = v
 		default:
 			m.Additional = append(m.Additional, k+": "+v)
 		}
@@ -219,40 +222,82 @@ func (m *Storage) Set(s string) {
 
 func (m *Storage) Remap(storageDomains []Storage) (ok bool, msgs error) {
 	if m.PrimaryType == "nfs" {
-		m.PrimaryPath = strings.TrimRight(m.PrimaryPath, "/")
-		m.SecondaryPath = strings.TrimRight(m.SecondaryPath, "/")
-	}
-	for n, domain := range storageDomains {
-		if m.PrimaryType != domain.PrimaryType || domain.PrimaryType != domain.SecondaryType {
-			continue
+		if m.PrimaryAddr == "" {
+			return false, errors.New("storage for " + m.PrimaryName + " without address")
 		}
-		if domain.PrimaryName != "" && m.PrimaryName != domain.PrimaryName {
-			continue
-		}
-		if m.PrimaryAddr != domain.PrimaryAddr || m.PrimaryPath != domain.PrimaryPath {
-			continue
+		if m.PrimaryPath == "" {
+			return false, errors.New("storage for " + m.PrimaryName + " without path")
 		}
 
-		if domain.SecondaryName != "" {
-			m.SecondaryName = domain.SecondaryName
-		} else if domain.PrimaryName != "" {
-			m.SecondaryName = domain.PrimaryName
+		m.PrimaryPath = strings.TrimRight(m.PrimaryPath, "/")
+		m.SecondaryPath = strings.TrimRight(m.SecondaryPath, "/")
+		for n, domain := range storageDomains {
+			if m.PrimaryType != domain.PrimaryType || domain.PrimaryType != domain.SecondaryType {
+				continue
+			}
+			if domain.PrimaryName != "" && m.PrimaryName != domain.PrimaryName {
+				continue
+			}
+			if m.PrimaryAddr != domain.PrimaryAddr || m.PrimaryPath != domain.PrimaryPath {
+				continue
+			}
+
+			if domain.SecondaryName != "" {
+				m.SecondaryName = domain.SecondaryName
+			} else if domain.PrimaryName != "" {
+				m.SecondaryName = domain.PrimaryName
+			}
+			if domain.SecondaryDC != "" {
+				m.SecondaryDC = domain.SecondaryDC
+			} else if domain.PrimaryDC != "" {
+				m.SecondaryDC = m.PrimaryDC
+			}
+			if domain.SecondaryAddr != "" {
+				m.SecondaryAddr = domain.SecondaryAddr
+			}
+			if domain.SecondaryPath != "" {
+				m.SecondaryPath = domain.SecondaryPath
+			}
+			storageDomains[n].Found = true
+			key := m.SecondaryType + "://" + m.SecondaryAddr + ":" + m.SecondaryPath
+			return true, errors.New("storage " + m.PrimaryName + " remapped with name " + m.SecondaryName + " as " + key)
 		}
-		if domain.SecondaryDC != "" {
-			m.SecondaryDC = domain.SecondaryDC
-		} else if domain.PrimaryDC != "" {
-			m.SecondaryDC = m.PrimaryDC
+	} else if m.PrimaryType == "fcp" {
+		if m.PrimaryAddr == "" {
+			return false, errors.New("storage for " + m.PrimaryName + " without address")
 		}
-		if domain.SecondaryAddr != "" {
-			m.SecondaryAddr = domain.SecondaryAddr
+		if m.PrimaryPath != "" {
+			return false, errors.New("storage for " + m.PrimaryName + " can't contain path")
 		}
-		if domain.SecondaryPath != "" {
-			m.SecondaryPath = domain.SecondaryPath
+		if m.PrimaryAddr != m.SecondaryAddr {
+			return false, errors.New("storage for " + m.PrimaryName + " with secondary address mismatch")
 		}
-		storageDomains[n].Found = true
-		key := m.SecondaryType + "://" + m.SecondaryAddr + ":" + m.SecondaryPath
-		return true, errors.New("storage " + m.PrimaryName + " remapped with name " + m.SecondaryName + " as " + key)
+
+		for n, domain := range storageDomains {
+			if m.PrimaryType != domain.PrimaryType || (domain.PrimaryType != domain.SecondaryType && domain.SecondaryType != "") {
+				continue
+			}
+			if domain.PrimaryName != "" && m.PrimaryName != domain.PrimaryName {
+				continue
+			}
+
+			if domain.SecondaryName != "" {
+				m.SecondaryName = domain.SecondaryName
+			} else if domain.PrimaryName != "" {
+				m.SecondaryName = domain.PrimaryName
+			}
+			if domain.SecondaryDC != "" {
+				m.SecondaryDC = domain.SecondaryDC
+			} else if domain.PrimaryDC != "" {
+				m.SecondaryDC = m.PrimaryDC
+			}
+
+			storageDomains[n].Found = true
+			key := m.SecondaryType + "://" + m.PrimaryAddr
+			return true, errors.New("storage " + m.PrimaryName + " remapped with name " + m.SecondaryName + " as " + key)
+		}
 	}
+
 	return false, errors.New("storage map for " + m.PrimaryName + " not found")
 }
 
@@ -267,11 +312,17 @@ func (m *Storage) Write(w *bufio.Writer) error {
 	if err := writeEntryLn(w, "  dr_primary_dc_name: ", m.PrimaryDC); err != nil {
 		return err
 	}
-	if err := writeEntryLn(w, "  dr_primary_path: ", m.PrimaryPath); err != nil {
-		return err
-	}
-	if err := writeEntryLn(w, "  dr_primary_address: ", m.PrimaryAddr); err != nil {
-		return err
+	if m.PrimaryType == "fcp" {
+		if err := writeEntryLn(w, "  dr_domain_id: ", m.PrimaryAddr); err != nil {
+			return err
+		}
+	} else {
+		if err := writeEntryLn(w, "  dr_primary_path: ", m.PrimaryPath); err != nil {
+			return err
+		}
+		if err := writeEntryLn(w, "  dr_primary_address: ", m.PrimaryAddr); err != nil {
+			return err
+		}
 	}
 
 	if err := writeEntryLn(w, "  dr_secondary_name: ", m.SecondaryName); err != nil {
@@ -280,11 +331,13 @@ func (m *Storage) Write(w *bufio.Writer) error {
 	if err := writeEntryLn(w, "  dr_secondary_dc_name: ", m.SecondaryDC); err != nil {
 		return err
 	}
-	if err := writeEntryLn(w, "  dr_secondary_path: ", m.SecondaryPath); err != nil {
-		return err
-	}
-	if err := writeEntryLn(w, "  dr_secondary_address: ", m.SecondaryAddr); err != nil {
-		return err
+	if m.PrimaryType != "fcp" {
+		if err := writeEntryLn(w, "  dr_secondary_path: ", m.SecondaryPath); err != nil {
+			return err
+		}
+		if err := writeEntryLn(w, "  dr_secondary_address: ", m.SecondaryAddr); err != nil {
+			return err
+		}
 	}
 
 	for _, a := range m.Additional {
