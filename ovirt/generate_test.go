@@ -46,6 +46,35 @@ func TestGenerateVars_writeAnsibleVarsFile(t *testing.T) {
 			template:    "disaster_recovery_vars.yml.tpl",
 			wantVarFile: "disaster_recovery_vars.yml",
 			wantWarns: []string{
+				`storage map for fc_tst not found`,
+				`storage nfs_dom remapped with name nfs_dom as nfs://10.1.2.2:/nfs_dom_dr2`,
+				`storage map for nfs_dom_2 not found`,
+			},
+		},
+		{
+			g: GenerateVars{
+				SecondaryUrl:      "https://saengine2.localdomain/ovirt-engine/api",
+				SecondaryUsername: "admin@internal",
+				StorageDomains: []Storage{
+					{
+						PrimaryType:   "nfs",
+						PrimaryPath:   "/nfs_dom_dr/",
+						PrimaryAddr:   "10.1.1.2",
+						SecondaryType: "nfs",
+						SecondaryPath: "/nfs_dom_dr2/",
+						SecondaryAddr: "10.1.2.2",
+					},
+					{
+						PrimaryType:   "fcp",
+						PrimaryAddr:   "0abc45defc",
+						SecondaryAddr: "0abc45defc",
+					},
+				},
+			},
+			template:    "disaster_recovery_vars.yml.tpl",
+			wantVarFile: "disaster_recovery_vars_with_fcp.yml",
+			wantWarns: []string{
+				`storage fc_tst remapped with name fc_tst as fcp://0abc45defc`,
 				`storage nfs_dom remapped with name nfs_dom as nfs://10.1.2.2:/nfs_dom_dr2`,
 				`storage map for nfs_dom_2 not found`,
 			},
