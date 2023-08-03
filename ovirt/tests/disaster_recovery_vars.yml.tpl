@@ -9,6 +9,19 @@ dr_sites_secondary_username: # admin@internal
 dr_sites_secondary_ca_file: # /var/lib/xrm-controller/ovirt/test/primary.ca
 
 dr_import_storages:
+- dr_domain_type: fcp
+  dr_wipe_after_delete: False
+  dr_backup: False
+  dr_critical_space_action_blocker: 5
+  dr_storage_domain_type: data
+  dr_primary_name: fc_tst
+  dr_primary_master_domain: True
+  dr_primary_dc_name: Default
+  dr_domain_id: 0abc45defc
+  # Fill in the empty properties related to the secondary site
+  dr_secondary_name: # fc_tst
+  dr_secondary_master_domain: # True
+  dr_secondary_dc_name: # Default
 - dr_domain_type: nfs
   dr_wipe_after_delete: False
   dr_backup: False
