@@ -66,8 +66,8 @@ func TestGenerateVars_writeAnsibleVarsFile(t *testing.T) {
 					},
 					{
 						PrimaryType:   "fcp",
-						PrimaryAddr:   "0abc45defc",
-						SecondaryAddr: "0abc45defc",
+						PrimaryPath:   "0abc45defc",
+						SecondaryPath: "0abc45defc",
 					},
 				},
 			},
