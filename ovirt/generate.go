@@ -60,16 +60,6 @@ func validateOvirtCon(url string, insecure bool, caFile, username, password stri
 	}
 }
 
-func writeEntryLn(w *bufio.Writer, k, v string) error {
-	if _, err := w.WriteString(k); err != nil {
-		return err
-	}
-	if _, err := w.WriteString(v); err != nil {
-		return err
-	}
-	return w.WriteByte('\n')
-}
-
 func writeStringLn(w *bufio.Writer, s string) (err error) {
 	if _, err = w.WriteString(s); err != nil {
 		return
@@ -147,19 +137,23 @@ func StripStorageDomains(s []Storage) []Storage {
 	return s[:pos]
 }
 
+type KV struct {
+	K, V string
+}
+
 type Storage struct {
-	PrimaryType   string   `json:"primary_type"`
-	PrimaryName   string   `json:"-"`
-	PrimaryDC     string   `json:"-"`
-	PrimaryPath   string   `json:"primary_path"` // nfs
-	PrimaryAddr   string   `json:"primary_addr"` // nfs, for fcp - dr_domain_id
-	SecondaryType string   `json:"secondary_type"`
-	SecondaryName string   `json:"-"`
-	SecondaryDC   string   `json:"-"`
-	SecondaryPath string   `json:"secondary_path"` // nfs
-	SecondaryAddr string   `json:"secondary_addr"` // nfs, for fcp - verify dr_domain_id
-	Additional    []string `json:"-"`
-	Found         bool     `json:"-"`
+	PrimaryType   string `json:"primary_type"`
+	PrimaryName   string `json:"-"`
+	PrimaryDC     string `json:"-"`
+	PrimaryPath   string `json:"primary_path"` // nfs
+	PrimaryAddr   string `json:"primary_addr"` // nfs, for fcp - dr_domain_id
+	SecondaryType string `json:"secondary_type"`
+	SecondaryName string `json:"-"`
+	SecondaryDC   string `json:"-"`
+	SecondaryPath string `json:"secondary_path"` // nfs
+	SecondaryAddr string `json:"secondary_addr"` // nfs, for fcp - verify dr_domain_id
+	Params        []KV   `json:"-"`
+	Found         bool   `json:"-"`
 }
 
 // {
@@ -178,7 +172,10 @@ func (m *Storage) Reset() {
 	m.SecondaryName = ""
 	m.SecondaryPath = ""
 	m.SecondaryAddr = ""
-	m.Additional = m.Additional[:0]
+
+	if len(m.Params) > 0 {
+		m.Params = m.Params[:0]
+	}
 }
 
 func (m *Storage) Set(s string) {
@@ -212,11 +209,8 @@ func (m *Storage) Set(s string) {
 		case "dr_domain_id": // fcp
 			m.PrimaryAddr = v
 			m.SecondaryAddr = v
-		default:
-			m.Additional = append(m.Additional, k+": "+v)
 		}
-	} else {
-		m.Additional = append(m.Additional, s)
+		m.Params = append(m.Params, KV{K: k, V: v})
 	}
 }
 
@@ -259,7 +253,12 @@ func (m *Storage) Remap(storageDomains []Storage) (ok bool, msgs error) {
 				m.SecondaryPath = domain.SecondaryPath
 			}
 			storageDomains[n].Found = true
-			key := m.SecondaryType + "://" + m.SecondaryAddr + ":" + m.SecondaryPath
+			var key string
+			if m.SecondaryPath == "" {
+				key = m.SecondaryType + "://" + m.SecondaryAddr
+			} else {
+				key = m.SecondaryType + "://" + m.SecondaryAddr + ":" + m.SecondaryPath
+			}
 			return true, errors.New("storage " + m.PrimaryName + " remapped with name " + m.SecondaryName + " as " + key)
 		}
 	} else if m.PrimaryType == "fcp" {
@@ -293,7 +292,13 @@ func (m *Storage) Remap(storageDomains []Storage) (ok bool, msgs error) {
 			}
 
 			storageDomains[n].Found = true
-			key := m.SecondaryType + "://" + m.PrimaryAddr
+			var key string
+			if m.SecondaryPath == "" {
+				key = m.SecondaryType + "://" + m.SecondaryAddr
+			} else {
+				key = m.SecondaryType + "://" + m.SecondaryAddr + ":" + m.SecondaryPath
+			}
+
 			return true, errors.New("storage " + m.PrimaryName + " remapped with name " + m.SecondaryName + " as " + key)
 		}
 	}
@@ -301,47 +306,44 @@ func (m *Storage) Remap(storageDomains []Storage) (ok bool, msgs error) {
 	return false, errors.New("storage map for " + m.PrimaryName + " not found")
 }
 
-func (m *Storage) Write(w *bufio.Writer) error {
-	if err := writeEntryLn(w, "- dr_domain_type: ", m.PrimaryType); err != nil {
-		return err
+func (m *Storage) remap(name, originValue string) string {
+	switch name {
+	case "dr_domain_type":
+		return m.PrimaryType
+	case "dr_primary_name":
+		return m.PrimaryName
+	case "dr_primary_dc_name":
+		return m.PrimaryDC
+	case "dr_primary_path": // nfs
+		return m.PrimaryPath
+	case "dr_primary_address": // nfs
+		return m.PrimaryAddr
+	case "dr_secondary_name":
+		return m.SecondaryName
+	case "dr_secondary_dc_name":
+		return m.SecondaryDC
+	case "dr_secondary_address": // nfs
+		return m.SecondaryAddr
+	case "dr_secondary_path": // nfs
+		return m.SecondaryPath
+	case "dr_domain_id": // fcp
+		return m.PrimaryAddr
+	default:
+		return originValue
 	}
+}
 
-	if err := writeEntryLn(w, "  dr_primary_name: ", m.PrimaryName); err != nil {
-		return err
-	}
-	if err := writeEntryLn(w, "  dr_primary_dc_name: ", m.PrimaryDC); err != nil {
-		return err
-	}
-	if m.PrimaryType == "fcp" {
-		if err := writeEntryLn(w, "  dr_domain_id: ", m.PrimaryAddr); err != nil {
-			return err
-		}
-	} else {
-		if err := writeEntryLn(w, "  dr_primary_path: ", m.PrimaryPath); err != nil {
-			return err
-		}
-		if err := writeEntryLn(w, "  dr_primary_address: ", m.PrimaryAddr); err != nil {
-			return err
-		}
-	}
+func (m *Storage) WriteAnsibleMap(w *bufio.Writer) error {
 
-	if err := writeEntryLn(w, "  dr_secondary_name: ", m.SecondaryName); err != nil {
-		return err
-	}
-	if err := writeEntryLn(w, "  dr_secondary_dc_name: ", m.SecondaryDC); err != nil {
-		return err
-	}
-	if m.PrimaryType != "fcp" {
-		if err := writeEntryLn(w, "  dr_secondary_path: ", m.SecondaryPath); err != nil {
-			return err
+	for i := 0; i < len(m.Params); i++ {
+		var prefixedKey string
+		if i == 0 {
+			prefixedKey = "- " + m.Params[i].K
+		} else {
+			prefixedKey = "  " + m.Params[i].K
 		}
-		if err := writeEntryLn(w, "  dr_secondary_address: ", m.SecondaryAddr); err != nil {
-			return err
-		}
-	}
 
-	for _, a := range m.Additional {
-		if err := writeEntryLn(w, "  ", a); err != nil {
+		if err := writeKVLn(w, prefixedKey, m.remap(m.Params[i].K, m.Params[i].V)); err != nil {
 			return err
 		}
 	}
@@ -352,21 +354,18 @@ func (m *Storage) Write(w *bufio.Writer) error {
 func (m *Storage) WriteString(buf *strings.Builder) {
 	buf.WriteByte('{')
 
-	_, _ = buf.WriteString("dr_domain_type: \"" + m.PrimaryType + "\", ")
-	_, _ = buf.WriteString("dr_primary_name: \"" + m.PrimaryName + "\", ")
-	_, _ = buf.WriteString("dr_primary_dc_name: \"" + m.PrimaryDC + "\", ")
-	_, _ = buf.WriteString("dr_primary_path: \"" + m.PrimaryPath + "\", ")
-	_, _ = buf.WriteString("dr_primary_address: \"" + m.PrimaryAddr + "\", ")
-
-	_, _ = buf.WriteString("dr_secondary_name: \"" + m.SecondaryName + "\", ")
-	_, _ = buf.WriteString("dr_secondary_dc_name: \"" + m.SecondaryDC + "\", ")
-	_, _ = buf.WriteString("dr_secondary_path: \"" + m.SecondaryPath + "\", ")
-	_, _ = buf.WriteString("dr_secondary_address: \"" + m.SecondaryAddr + "\"")
-
-	for _, a := range m.Additional {
-		k, v, _ := splitKV(a, false)
-		_, _ = buf.WriteString(", " + k + ": \"" + v + "\"")
+	for i := 0; i < len(m.Params); i++ {
+		if i == 0 {
+			_ = buf.WriteByte(' ')
+		} else {
+			_, _ = buf.WriteString(", ")
+		}
+		_, _ = buf.WriteString(m.Params[i].K)
+		_, _ = buf.WriteString(": \"")
+		_, _ = buf.WriteString(m.remap(m.Params[i].K, m.Params[i].V))
+		_, _ = buf.WriteString("\"")
 	}
+
 	buf.WriteByte('}')
 }
 
@@ -600,7 +599,7 @@ func (g GenerateVars) writeAnsibleVarsFile(template, varFile string) (storages s
 					}
 					if ok {
 						hasStorages = true
-						if err = storage.Write(writer); err != nil {
+						if err = storage.WriteAnsibleMap(writer); err != nil {
 							return
 						}
 					}
@@ -625,7 +624,7 @@ func (g GenerateVars) writeAnsibleVarsFile(template, varFile string) (storages s
 					}
 					if ok {
 						hasStorages = true
-						if err = storage.Write(writer); err != nil {
+						if err = storage.WriteAnsibleMap(writer); err != nil {
 							return
 						}
 					}
@@ -692,7 +691,7 @@ func (g GenerateVars) writeAnsibleVarsFile(template, varFile string) (storages s
 		}
 		if ok {
 			hasStorages = true
-			if err = storage.Write(writer); err != nil {
+			if err = storage.WriteAnsibleMap(writer); err != nil {
 				return
 			}
 		}
