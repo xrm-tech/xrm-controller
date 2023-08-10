@@ -52,16 +52,18 @@ func TestGenerateValidate(t *testing.T) {
 
 	siteConfig := ovirt.GenerateVars{
 		SecondaryUrl: "https://saengine2.localdomain/ovirt-engine/api",
-		StorageDomains: []ovirt.Storage{
+		StorageDomains: []ovirt.StorageMap{
 			{
-				PrimaryType:   "nfs",
-				PrimaryName:   "nfs_dom",
-				PrimaryPath:   "/nfs_dom_dr/",
-				PrimaryAddr:   "10.1.1.2",
-				SecondaryType: "nfs",
-				SecondaryName: "nfs_dom",
-				SecondaryPath: "/nfs_dom_dr2/",
-				SecondaryAddr: "10.1.2.3",
+				StorageBase: ovirt.StorageBase{
+					PrimaryType:   "nfs",
+					PrimaryName:   "nfs_dom",
+					PrimaryPath:   "/nfs_dom_dr/",
+					PrimaryAddr:   "10.1.1.2",
+					SecondaryType: "nfs",
+					SecondaryName: "nfs_dom",
+					SecondaryPath: "/nfs_dom_dr2/",
+					SecondaryAddr: "10.1.2.3",
+				},
 			},
 		},
 	}
@@ -115,16 +117,18 @@ func TestGenerateFiltering(t *testing.T) {
 		SecondaryUrl:      "https://saengine2.localdomain/ovirt-engine/api",
 		SecondaryUsername: "admin@ovirt@internal",
 		SecondaryPassword: "password",
-		StorageDomains: []ovirt.Storage{
+		StorageDomains: []ovirt.StorageMap{
 			{
-				PrimaryType:   "nfs",
-				PrimaryName:   "nfs_dom",
-				PrimaryPath:   "/nfs_dom_dr/",
-				PrimaryAddr:   "10.1.1.2",
-				SecondaryType: "nfs",
-				SecondaryName: "nfs_dom",
-				SecondaryPath: "/nfs_dom_dr2/",
-				SecondaryAddr: "10.1.2.3",
+				StorageBase: ovirt.StorageBase{
+					PrimaryType:   "nfs",
+					PrimaryName:   "nfs_dom",
+					PrimaryPath:   "/nfs_dom_dr/",
+					PrimaryAddr:   "10.1.1.2",
+					SecondaryType: "nfs",
+					SecondaryName: "nfs_dom",
+					SecondaryPath: "/nfs_dom_dr2/",
+					SecondaryAddr: "10.1.2.3",
+				},
 			},
 		},
 	}

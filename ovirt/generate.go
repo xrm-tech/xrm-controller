@@ -33,6 +33,10 @@ var (
 	ansibleFailbackPlaybook = "dr_failback.yml"
 	ansibleDrVarsFile       = "disaster_recovery_vars.yml"
 	ansibleDrPwdFile        = "ovirt_passwords.yml"
+
+	StorageNFS   string = "nfs"
+	StorageFCP   string = "fcp"
+	StorageISCSI string = "iscsi"
 )
 
 func validateOvirtCon(url string, insecure bool, caFile, username, password string) error {
@@ -117,61 +121,122 @@ func startBytes(s string, r rune) (n int) {
 	return
 }
 
-func StripStorageDomains(s []Storage) []Storage {
+func StripStorageDomains(s []StorageMap) []StorageMap {
 	pos := 0
 	exist := make(map[string]bool)
+	iSCSIexist := make(map[string]StorageMap)
 	for i := 0; i < len(s); i++ {
-		if s[i].PrimaryType == "nfs" {
+		if s[i].PrimaryType == StorageNFS {
 			s[i].PrimaryPath = strings.TrimRight(s[i].PrimaryPath, "/")
 			s[i].SecondaryPath = strings.TrimRight(s[i].SecondaryPath, "/")
 		}
 		// cleanup from dulpicates
-		key := s[i].PrimaryType + "://" + s[i].PrimaryAddr + ":" + s[i].PrimaryPath
-		if _, ok := exist[key]; !ok {
+		key := s[i].PrimaryType + "://" + s[i].PrimaryId + ":" + s[i].PrimaryAddr + ":" + s[i].PrimaryPath + ":" + s[i].PrimaryPort
+		if s[i].PrimaryType == StorageISCSI {
+			if len(s[i].Targets) > 0 {
+				if m, ok := iSCSIexist[key]; ok {
+					for k, v := range s[i].Targets {
+						m.Targets[k] = v
+					}
+					iSCSIexist[key] = m
+				} else {
+					iSCSIexist[key] = s[i]
+				}
+			}
+		} else if _, ok := exist[key]; !ok {
 			s[pos] = s[i]
 			pos++
 			exist[key] = true
 		}
-
 	}
-	return s[:pos]
+	s = s[:pos]
+
+	if len(iSCSIexist) > 0 {
+		for _, m := range iSCSIexist {
+			s = append(s, m)
+		}
+	}
+
+	return s
 }
 
 type KV struct {
 	K, V string
 }
 
-type Storage struct {
-	PrimaryType   string `json:"primary_type"`
-	PrimaryName   string `json:"-"`
-	PrimaryDC     string `json:"-"`
-	PrimaryPath   string `json:"primary_path"` // nfs
-	PrimaryAddr   string `json:"primary_addr"` // nfs, for fcp - dr_domain_id
-	SecondaryType string `json:"secondary_type"`
+type StorageBase struct {
+	PrimaryType string `json:"primary_type"`
+
+	PrimaryName string `json:"-"`
+	PrimaryDC   string `json:"-"`
+	PrimaryId   string `json:"primary_id"`   // fcp or iscsi - dr_domain_id
+	PrimaryAddr string `json:"primary_addr"` // nfs, iscsi
+	PrimaryPath string `json:"primary_path"` // nfs,
+	PrimaryPort string `json:"primary_port"` // iscsi
+
 	SecondaryName string `json:"-"`
 	SecondaryDC   string `json:"-"`
+	SecondaryType string `json:"secondary_type"`
+	SecondaryId   string `json:"secondary_id"`   // fcp or iscsi - verify dr_domain_id
+	SecondaryAddr string `json:"secondary_addr"` // nfs, iscsi
 	SecondaryPath string `json:"secondary_path"` // nfs
-	SecondaryAddr string `json:"secondary_addr"` // nfs, for fcp - verify dr_domain_id
-	Params        []KV   `json:"-"`
-	Found         bool   `json:"-"`
+	SecondaryPort string `json:"secondary_port"` // iscsi
 }
 
+// StorageMap for nfs
 // {
 // 	'primary_type': 'nfs', 'primary_addr': '192.168.122.210', 'primary_path': '/nfs_dom',
 // 	'secondary_type': 'nfs', 'secondary_addr': '192.168.122.210', 'secondary_path': '/nfs_dom_replica'
 // }
 
+// StorageMap for fcp
+// {
+// 	'primary_type': 'fcp', 'primary_id': '0abc45defc',
+// 	'secondary_type': 'fcp', 'secondary_id': '0abc45defc',
+// }
+
+// StorageMap for iscsi
+// {
+// 	'primary_type': 'iscsi', 'primary_id': 'bcca8438-810f-4932-bf25-d874babd97b1', 'primary_addr': '192.168.1.101', 'primary_port': '3260',
+// 	'secondary_type': 'iscsi', 'secondary_id': 'bcca8438-810f-4932-bf25-d874babd97b1', 'secondary_addr': '192.168.2.101', 'secondary_port': '3260',
+//  'targets': {
+//     'iqn.2006-01.com.openfiler:olvm-data1': 'iqn.2006-02.com.openfiler:olvm-data1-2',
+//     'iqn.2006-01.com.openfiler:olvm-data2': 'iqn.2006-02.com.openfiler:olvm-data2-2'
+//   }
+// }
+
+type StorageMap struct {
+	StorageBase
+
+	Targets map[string]string `json:"targets"` // iscsi
+
+	Found bool `json:"-"` // found during remap flag
+}
+
+type Storage struct {
+	StorageBase
+
+	PrimaryTargets   []string
+	SecondaryTargets []string
+
+	Params []KV
+}
+
 func (m *Storage) Reset() {
 	m.PrimaryType = ""
 	m.PrimaryDC = ""
 	m.PrimaryName = ""
+	m.PrimaryId = ""
 	m.PrimaryPath = ""
 	m.PrimaryAddr = ""
+	m.PrimaryPort = ""
 	m.SecondaryType = ""
 	m.SecondaryDC = ""
 	m.SecondaryName = ""
+	m.SecondaryId = ""
 	m.SecondaryPath = ""
 	m.SecondaryAddr = ""
+	m.SecondaryPort = ""
 
 	if len(m.Params) > 0 {
 		m.Params = m.Params[:0]
@@ -196,33 +261,101 @@ func (m *Storage) Set(s string) {
 			m.PrimaryDC = v
 		case "dr_primary_path": // nfs
 			m.PrimaryPath = v
-		case "dr_primary_address": // nfs
+		case "dr_primary_address": // nfs, iscsi
 			m.PrimaryAddr = v
+		case "dr_primary_port": // iscsi
+			m.PrimaryPort = v
 		case "dr_secondary_name":
 			m.SecondaryName = v
 		case "dr_secondary_dc_name":
 			m.SecondaryDC = v
-		case "dr_secondary_address": // nfs
+		case "dr_secondary_address": // nfs, iscsi
 			m.SecondaryAddr = v
 		case "dr_secondary_path": // nfs
 			m.SecondaryPath = v
-		case "dr_domain_id": // fcp
-			m.PrimaryAddr = v
-			m.SecondaryAddr = v
+		case "dr_secondary_port": // iscsi
+			m.SecondaryPort = v
+		case "dr_domain_id": // fcp, iscsi
+			m.PrimaryId = v
+			m.SecondaryId = v
 		}
 		m.Params = append(m.Params, KV{K: k, V: v})
 	}
 }
 
-func (m *Storage) Remap(storageDomains []Storage) (ok bool, msgs error) {
-	if m.PrimaryType == "nfs" {
+func (m *Storage) validate() (errs []error) {
+	if m.PrimaryType == StorageNFS {
 		if m.PrimaryAddr == "" {
-			return false, errors.New("storage for " + m.PrimaryName + " without address")
+			errs = append(errs, errors.New("storage for "+m.PrimaryName+" without primary address"))
 		}
 		if m.PrimaryPath == "" {
-			return false, errors.New("storage for " + m.PrimaryName + " without path")
+			errs = append(errs, errors.New("storage for "+m.PrimaryName+" without primary path"))
+		}
+		if m.PrimaryId != "" {
+			errs = append(errs, errors.New("storage for "+m.PrimaryName+" can't contain primary id"))
+		}
+		if m.PrimaryPort != "" {
+			errs = append(errs, errors.New("storage for "+m.PrimaryName+" can't contain primary port"))
 		}
 
+		if m.SecondaryAddr == "" {
+			errs = append(errs, errors.New("storage for "+m.PrimaryName+" without secondary address"))
+		}
+		if m.SecondaryPath == "" {
+			errs = append(errs, errors.New("storage for "+m.PrimaryName+" without secondary path"))
+		}
+
+	} else if m.PrimaryType == StorageFCP {
+		if m.PrimaryId == "" {
+			errs = append(errs, errors.New("storage for "+m.PrimaryName+" without primary id"))
+		}
+		if m.PrimaryAddr != "" {
+			errs = append(errs, errors.New("storage for "+m.PrimaryName+" can't contain primary address"))
+		}
+		if m.PrimaryPath != "" {
+			errs = append(errs, errors.New("storage for "+m.PrimaryName+" can't contain primary path"))
+		}
+		if m.PrimaryPort != "" {
+			errs = append(errs, errors.New("storage for "+m.PrimaryName+" can't contain primary port"))
+		}
+
+		if m.PrimaryId != m.SecondaryId {
+			errs = append(errs, errors.New("storage for "+m.PrimaryName+" with secondary id mismatch"))
+		}
+
+	} else if m.PrimaryType == StorageISCSI {
+		if m.PrimaryId == "" {
+			errs = append(errs, errors.New("storage for "+m.PrimaryName+" without primary id"))
+		}
+		if m.PrimaryAddr == "" {
+			errs = append(errs, errors.New("storage for "+m.PrimaryName+" without primary address"))
+		}
+		if m.PrimaryPort == "" {
+			errs = append(errs, errors.New("storage for "+m.PrimaryName+" without primary port"))
+		}
+		if m.PrimaryPath != "" {
+			errs = append(errs, errors.New("storage for "+m.PrimaryName+" can't contain primary path"))
+		}
+
+		if m.PrimaryId != m.SecondaryId {
+			errs = append(errs, errors.New("storage for "+m.PrimaryName+" with secondary id mismatch"))
+		}
+		if m.SecondaryAddr == "" {
+			errs = append(errs, errors.New("storage for "+m.PrimaryName+" without secondary address"))
+		}
+		if m.SecondaryPort == "" {
+			errs = append(errs, errors.New("storage for "+m.PrimaryName+" without secondary port"))
+		}
+	}
+
+	return
+}
+
+func (m *Storage) Remap(storageDomains []StorageMap) (ok bool, msgs []error) {
+	if msgs = m.validate(); len(msgs) > 0 {
+		return false, msgs
+	}
+	if m.PrimaryType == StorageNFS {
 		m.PrimaryPath = strings.TrimRight(m.PrimaryPath, "/")
 		m.SecondaryPath = strings.TrimRight(m.SecondaryPath, "/")
 		for n, domain := range storageDomains {
@@ -253,25 +386,39 @@ func (m *Storage) Remap(storageDomains []Storage) (ok bool, msgs error) {
 				m.SecondaryPath = domain.SecondaryPath
 			}
 			storageDomains[n].Found = true
-			var key string
-			if m.SecondaryPath == "" {
-				key = m.SecondaryType + "://" + m.SecondaryAddr
-			} else {
-				key = m.SecondaryType + "://" + m.SecondaryAddr + ":" + m.SecondaryPath
+			key := m.SecondaryType + "://" + m.SecondaryAddr + ":" + m.SecondaryPath
+			return true, []error{errors.New("storage " + m.PrimaryName + " remapped with name " + m.SecondaryName + " as " + key)}
+		}
+	} else if m.PrimaryType == StorageFCP {
+		for n, domain := range storageDomains {
+			if m.PrimaryType != domain.PrimaryType || (domain.PrimaryType != domain.SecondaryType && domain.SecondaryType != "") {
+				continue
 			}
-			return true, errors.New("storage " + m.PrimaryName + " remapped with name " + m.SecondaryName + " as " + key)
-		}
-	} else if m.PrimaryType == "fcp" {
-		if m.PrimaryAddr == "" {
-			return false, errors.New("storage for " + m.PrimaryName + " without address")
-		}
-		if m.PrimaryPath != "" {
-			return false, errors.New("storage for " + m.PrimaryName + " can't contain path")
-		}
-		if m.PrimaryAddr != m.SecondaryAddr {
-			return false, errors.New("storage for " + m.PrimaryName + " with secondary address mismatch")
-		}
+			if domain.PrimaryName != "" && m.PrimaryName != domain.PrimaryName {
+				continue
+			}
 
+			if m.PrimaryId != domain.PrimaryId {
+				continue
+			}
+
+			if domain.SecondaryName != "" {
+				m.SecondaryName = domain.SecondaryName
+			} else if domain.PrimaryName != "" {
+				m.SecondaryName = domain.PrimaryName
+			}
+			if domain.SecondaryDC != "" {
+				m.SecondaryDC = domain.SecondaryDC
+			} else if domain.PrimaryDC != "" {
+				m.SecondaryDC = m.PrimaryDC
+			}
+
+			storageDomains[n].Found = true
+			key := m.SecondaryType + "://" + m.SecondaryId
+
+			return true, []error{errors.New("storage " + m.PrimaryName + " remapped with name " + m.SecondaryName + " as " + key)}
+		}
+	} else if m.PrimaryType == StorageISCSI {
 		for n, domain := range storageDomains {
 			if m.PrimaryType != domain.PrimaryType || (domain.PrimaryType != domain.SecondaryType && domain.SecondaryType != "") {
 				continue
@@ -292,18 +439,13 @@ func (m *Storage) Remap(storageDomains []Storage) (ok bool, msgs error) {
 			}
 
 			storageDomains[n].Found = true
-			var key string
-			if m.SecondaryPath == "" {
-				key = m.SecondaryType + "://" + m.SecondaryAddr
-			} else {
-				key = m.SecondaryType + "://" + m.SecondaryAddr + ":" + m.SecondaryPath
-			}
+			key := m.SecondaryType + "://" + m.SecondaryId
 
-			return true, errors.New("storage " + m.PrimaryName + " remapped with name " + m.SecondaryName + " as " + key)
+			return true, []error{errors.New("storage " + m.PrimaryName + " remapped with name " + m.SecondaryName + " as " + key)}
 		}
 	}
 
-	return false, errors.New("storage map for " + m.PrimaryName + " not found")
+	return false, []error{errors.New("storage map for " + m.PrimaryName + " not found")}
 }
 
 func (m *Storage) remap(name, originValue string) string {
@@ -318,6 +460,13 @@ func (m *Storage) remap(name, originValue string) string {
 		return m.PrimaryPath
 	case "dr_primary_address": // nfs
 		return m.PrimaryAddr
+	case "dr_primary_port": //iscsi
+		return m.PrimaryPort
+	case "dr_primary_target":
+		if len(m.PrimaryTargets) == 0 {
+			return "[]"
+		}
+		return `["` + strings.Join(m.PrimaryTargets, `", "`) + `"]`
 	case "dr_secondary_name":
 		return m.SecondaryName
 	case "dr_secondary_dc_name":
@@ -326,8 +475,15 @@ func (m *Storage) remap(name, originValue string) string {
 		return m.SecondaryAddr
 	case "dr_secondary_path": // nfs
 		return m.SecondaryPath
-	case "dr_domain_id": // fcp
-		return m.PrimaryAddr
+	case "dr_secondary_port": //iscsi
+		return m.SecondaryPort
+	case "dr_secondary_target":
+		if len(m.SecondaryTargets) == 0 {
+			return "[]"
+		}
+		return `["` + strings.Join(m.SecondaryTargets, `", "`) + `"]`
+	case "dr_domain_id": // fcp, iscsi
+		return m.PrimaryId
 	default:
 		return originValue
 	}
@@ -371,13 +527,13 @@ func (m *Storage) WriteString(buf *strings.Builder) {
 
 // GenerateVars is OVirt engines API address/credentials
 type GenerateVars struct {
-	PrimaryUrl        string    `json:"site_primary_url"`
-	PrimaryUsername   string    `json:"site_primary_username"`
-	PrimaryPassword   string    `json:"site_primary_password"`
-	SecondaryUrl      string    `json:"site_secondary_url"`
-	SecondaryUsername string    `json:"site_secondary_username"`
-	SecondaryPassword string    `json:"site_secondary_password"`
-	StorageDomains    []Storage `json:"storage_domains"`
+	PrimaryUrl        string       `json:"site_primary_url"`
+	PrimaryUsername   string       `json:"site_primary_username"`
+	PrimaryPassword   string       `json:"site_primary_password"`
+	SecondaryUrl      string       `json:"site_secondary_url"`
+	SecondaryUsername string       `json:"site_secondary_username"`
+	SecondaryPassword string       `json:"site_secondary_password"`
+	StorageDomains    []StorageMap `json:"storage_domains"`
 }
 
 func (g GenerateVars) Generate(name, dir string) (storages string, out string, err error) {
@@ -595,7 +751,7 @@ func (g GenerateVars) writeAnsibleVarsFile(template, varFile string) (storages s
 					ok, rErr := storage.Remap(g.StorageDomains)
 					storagesSlice = append(storagesSlice, storage)
 					if rErr != nil {
-						remapWarnings = append(remapWarnings, rErr)
+						remapWarnings = append(remapWarnings, rErr...)
 					}
 					if ok {
 						hasStorages = true
@@ -620,7 +776,7 @@ func (g GenerateVars) writeAnsibleVarsFile(template, varFile string) (storages s
 					ok, rErr := storage.Remap(g.StorageDomains)
 					storagesSlice = append(storagesSlice, storage)
 					if rErr != nil {
-						remapWarnings = append(remapWarnings, rErr)
+						remapWarnings = append(remapWarnings, rErr...)
 					}
 					if ok {
 						hasStorages = true
@@ -687,7 +843,7 @@ func (g GenerateVars) writeAnsibleVarsFile(template, varFile string) (storages s
 		ok, rErr := storage.Remap(g.StorageDomains)
 		storagesSlice = append(storagesSlice, storage)
 		if rErr != nil {
-			remapWarnings = append(remapWarnings, rErr)
+			remapWarnings = append(remapWarnings, rErr...)
 		}
 		if ok {
 			hasStorages = true
