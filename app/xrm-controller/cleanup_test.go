@@ -15,16 +15,18 @@ func Test_bodyPasswordCleanup(t *testing.T) {
 		SecondaryUrl:      "https://saengine2.localdomain/ovirt-engine/api",
 		SecondaryUsername: "admin@internal",
 		SecondaryPassword: "_SECURE_",
-		StorageDomains: []ovirt.Storage{
+		StorageDomains: []ovirt.StorageMap{
 			{
-				PrimaryType:   "nfs",
-				PrimaryName:   "nfs_dom",
-				PrimaryPath:   "/nfs_dom_dr/",
-				PrimaryAddr:   "10.1.1.2",
-				SecondaryType: "nfs",
-				SecondaryName: "nfs_dom",
-				SecondaryPath: "/nfs_dom_dr2/",
-				SecondaryAddr: "10.1.2.3",
+				StorageBase: ovirt.StorageBase{
+					PrimaryType:   "nfs",
+					PrimaryName:   "nfs_dom",
+					PrimaryPath:   "/nfs_dom_dr/",
+					PrimaryAddr:   "10.1.1.2",
+					SecondaryType: "nfs",
+					SecondaryName: "nfs_dom",
+					SecondaryPath: "/nfs_dom_dr2/",
+					SecondaryAddr: "10.1.2.3",
+				},
 			},
 		},
 	}
@@ -35,16 +37,18 @@ func Test_bodyPasswordCleanup(t *testing.T) {
 		SecondaryUrl:      "https://saengine2.localdomain/ovirt-engine/api",
 		SecondaryUsername: "admin@internal",
 		SecondaryPassword: "<STRIPPED>",
-		StorageDomains: []ovirt.Storage{
+		StorageDomains: []ovirt.StorageMap{
 			{
-				PrimaryType:   "nfs",
-				PrimaryName:   "nfs_dom",
-				PrimaryPath:   "/nfs_dom_dr/",
-				PrimaryAddr:   "10.1.1.2",
-				SecondaryType: "nfs",
-				SecondaryName: "nfs_dom",
-				SecondaryPath: "/nfs_dom_dr2/",
-				SecondaryAddr: "10.1.2.3",
+				StorageBase: ovirt.StorageBase{
+					PrimaryType:   "nfs",
+					PrimaryName:   "nfs_dom",
+					PrimaryPath:   "/nfs_dom_dr/",
+					PrimaryAddr:   "10.1.1.2",
+					SecondaryType: "nfs",
+					SecondaryName: "nfs_dom",
+					SecondaryPath: "/nfs_dom_dr2/",
+					SecondaryAddr: "10.1.2.3",
+				},
 			},
 		},
 	}
