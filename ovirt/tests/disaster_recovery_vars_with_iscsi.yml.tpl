@@ -1,10 +1,10 @@
 ---
-dr_sites_primary_url: https://saengine.localdomain/ovirt-engine/api
+dr_sites_primary_url: https://saengine1.localdomain/ovirt-engine/api
 dr_sites_primary_username: admin@internal
 dr_sites_primary_ca_file: /home/user/go/src/github.com/xrm-tech/xrm-controller/ovirt/test/primary.ca
 
 # Please fill in the following properties for the secondary site: 
-dr_sites_secondary_url: # https://saengine.localdomain/ovirt-engine/api
+dr_sites_secondary_url: # https://saengine1.localdomain/ovirt-engine/api
 dr_sites_secondary_username: # admin@internal
 dr_sites_secondary_ca_file: # /var/lib/xrm-controller/ovirt/test/primary.ca
 
@@ -22,7 +22,7 @@ dr_import_storages:
   dr_domain_id: bcca8438-810f-4932-bf25-d874babd97b1
   dr_primary_address: 192.168.1.101
   dr_primary_port: 3260
-  dr_primary_target: ["iqn.2006-01.com.openfiler:olvm-data1", "iqn.2006-01.com.openfiler:olvm-data2"]
+  dr_primary_target: ["iqn.2006-01.com.openfiler:olvm-data1", "iqn.2006-01.com.openfiler:olvm-data2", "iqn.2006-01.com.openfiler:olvm-data3"]
   # Fill in the empty properties related to the secondary site
   dr_secondary_name: # data
   dr_secondary_master_domain: # False
@@ -30,7 +30,7 @@ dr_import_storages:
   dr_secondary_address: # 192.168.1.101
   dr_secondary_port: # 3260
   # target example: ["target1","target2","target3"]
-  dr_secondary_target: # ["iqn.2006-02.com.openfiler:olvm-data1-2", "iqn.2006-02.com.openfiler:olvm-data2-2"]
+  dr_secondary_target: # ["iqn.2006-02.com.openfiler:olvm-data1-2", "iqn.2006-02.com.openfiler:olvm-data2-2", "iqn.2006-01.com.openfiler:olvm-data3-2"]
 - dr_domain_type: nfs
   dr_wipe_after_delete: False
   dr_backup: False
@@ -65,7 +65,6 @@ dr_import_storages:
   dr_secondary_dc_name: # Default
   dr_secondary_path: # /nfs_dom_dr_2/
   dr_secondary_address: # 10.1.1.2
-
 - dr_domain_type: iscsi
   dr_wipe_after_delete: False
   dr_backup: False
@@ -76,7 +75,7 @@ dr_import_storages:
   dr_primary_master_domain: True
   dr_primary_dc_name: Default
   dr_discard_after_delete: False
-  dr_domain_id: 7f193505-6922-467e-aeb7-06ee4d9296b6
+  dr_domain_id: bcca8438-810f-4932-bf25-d874babd97b1
   dr_primary_address: 192.168.1.101
   dr_primary_port: 3260
   dr_primary_target: ["iqn.2006-01.com.openfiler:olvm-iso"]
