@@ -683,21 +683,56 @@ func (g GenerateVars) Validate() error {
 		if s.PrimaryType == "" {
 			errs = append(errs, "primary_type["+strconv.Itoa(i)+"] is empty")
 		}
-		if s.PrimaryPath == "" {
-			errs = append(errs, "primary_path["+strconv.Itoa(i)+"] is empty")
+		if s.SecondaryType != s.PrimaryType {
+			errs = append(errs, "secondary_type["+strconv.Itoa(i)+"] mismatch")
 		}
-		if s.PrimaryAddr == "" {
-			errs = append(errs, "primary_addr["+strconv.Itoa(i)+"] is empty")
-		}
+		switch s.PrimaryType {
+		case StorageNFS:
+			if s.PrimaryAddr == "" {
+				errs = append(errs, "primary_addr["+strconv.Itoa(i)+"] is empty")
+			}
+			if s.PrimaryPath == "" {
+				errs = append(errs, "primary_path["+strconv.Itoa(i)+"] is empty")
+			}
 
-		if s.SecondaryType == "" {
-			errs = append(errs, "secondary_type["+strconv.Itoa(i)+"] is empty")
-		}
-		if s.SecondaryPath == "" {
-			errs = append(errs, "secondary_path["+strconv.Itoa(i)+"] is empty")
-		}
-		if s.SecondaryAddr == "" {
-			errs = append(errs, "secondary_addr["+strconv.Itoa(i)+"] is empty")
+			if s.SecondaryAddr == "" {
+				errs = append(errs, "secondary_addr["+strconv.Itoa(i)+"] is empty")
+			}
+			if s.SecondaryPath == "" {
+				errs = append(errs, "secondary_path["+strconv.Itoa(i)+"] is empty")
+			}
+		case StorageFCP:
+			if s.PrimaryId == "" {
+				errs = append(errs, "primary_id["+strconv.Itoa(i)+"] is empty")
+			}
+
+			if s.SecondaryId == "" {
+				errs = append(errs, "secondary_id["+strconv.Itoa(i)+"] is empty")
+			}
+		case StorageISCSI:
+			if s.PrimaryId == "" {
+				errs = append(errs, "primary_id["+strconv.Itoa(i)+"] is empty")
+			}
+			if s.PrimaryAddr == "" {
+				errs = append(errs, "primary_addr["+strconv.Itoa(i)+"] is empty")
+			}
+			if s.PrimaryPort == "" {
+				errs = append(errs, "primary_port["+strconv.Itoa(i)+"] is empty")
+			}
+
+			if s.SecondaryId == "" {
+				errs = append(errs, "secondary_id["+strconv.Itoa(i)+"] is empty")
+			}
+			if s.SecondaryAddr == "" {
+				errs = append(errs, "secondary_addr["+strconv.Itoa(i)+"] is empty")
+			}
+			if s.SecondaryPort == "" {
+				errs = append(errs, "secondary_port["+strconv.Itoa(i)+"] is empty")
+			}
+
+			if len(s.Targets) == 0 {
+				errs = append(errs, "targets["+strconv.Itoa(i)+"] is empty")
+			}
 		}
 	}
 
