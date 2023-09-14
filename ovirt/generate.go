@@ -386,9 +386,9 @@ func (m *Storage) validate() (errs []error) {
 	return
 }
 
-func (m *Storage) Remap(storageDomains []StorageMap) (ok bool, msgs []error) {
-	if msgs = m.validate(); len(msgs) > 0 {
-		return false, msgs
+func (m *Storage) Remap(storageDomains []StorageMap) (success bool, msg string, errs []error) {
+	if errs = m.validate(); len(errs) > 0 {
+		return
 	}
 	switch m.PrimaryType {
 	case StorageNFS:
@@ -408,10 +408,9 @@ func (m *Storage) Remap(storageDomains []StorageMap) (ok bool, msgs []error) {
 
 			storageDomains[n].Found = true
 
-			// key := m.SecondaryType + "://" + m.SecondaryAddr + ":" + m.SecondaryPath
-			// return true, []error{errors.New("storage " + m.PrimaryName + " remapped with name " + m.SecondaryName + " as " + key)}
-
-			return true, nil
+			key := m.SecondaryType + "://" + m.SecondaryAddr + ":" + m.SecondaryPath
+			success = true
+			msg = "storage " + m.PrimaryName + " remapped with name " + m.SecondaryName + " as " + key
 		}
 	case StorageFCP:
 		for n, domain := range storageDomains {
@@ -425,10 +424,9 @@ func (m *Storage) Remap(storageDomains []StorageMap) (ok bool, msgs []error) {
 
 			storageDomains[n].Found = true
 
-			// key := m.SecondaryType + "://" + m.SecondaryId
-			// return true, []error{errors.New("storage " + m.PrimaryName + " remapped with name " + m.SecondaryName + " as " + key)}
-
-			return true, nil
+			key := m.SecondaryType + "://" + m.SecondaryId
+			success = true
+			msg = "storage " + m.PrimaryName + " remapped with name " + m.SecondaryName + " as " + key
 		}
 	case StorageISCSI:
 		for n, domain := range storageDomains {
@@ -460,14 +458,14 @@ func (m *Storage) Remap(storageDomains []StorageMap) (ok bool, msgs []error) {
 
 			storageDomains[n].Found = true
 
-			// key := m.SecondaryType + "://" + m.SecondaryId
-			// return true, []error{errors.New("storage " + m.PrimaryName + " remapped with name " + m.SecondaryName + " as " + key)}
-
-			return true, nil
+			key := m.SecondaryType + "://" + m.SecondaryId
+			success = true
+			targets := strings.Join(m.SecondaryTargets, ",")
+			msg = "storage " + m.PrimaryName + " remapped with name " + m.SecondaryName + " as " + key + ":" + targets
 		}
 	}
 
-	return false, []error{errors.New("storage map for " + m.PrimaryName + " not found")}
+	return
 }
 
 func (m *Storage) remap(name, originValue string) string {
@@ -552,7 +550,7 @@ type GenerateVars struct {
 	StorageDomains    []StorageMap `json:"storage_domains"`
 }
 
-func (g GenerateVars) Generate(name, dir string) (storages string, out string, err error) {
+func (g GenerateVars) Generate(name, dir string) (storages []string, out string, err error) {
 	ansiblePath, err := exec.LookPath("ansible-playbook")
 	if err != nil {
 		err = ErrAnsibleNotFound
@@ -580,7 +578,7 @@ func (g GenerateVars) Generate(name, dir string) (storages string, out string, e
 	secondaryCaFile := path.Join(dir, "secondary.ca")
 
 	if !lock.TryLock() {
-		return "", "", ErrInProgress
+		return nil, "", ErrInProgress
 	}
 
 	flock := fslock.New(dir + ".lock")
@@ -637,17 +635,29 @@ func (g GenerateVars) Generate(name, dir string) (storages string, out string, e
 
 	wg.Wait()
 
+	var buf strings.Builder
+
+	if len(storages) > 0 {
+		buf.WriteString("STORAGES:\n")
+		for _, storage := range storages {
+			buf.WriteString(storage)
+			buf.WriteByte('\n')
+		}
+		buf.WriteByte('\n')
+		buf.WriteString(out)
+	}
+
 	if len(warnings) > 0 {
-		var buf strings.Builder
-		buf.WriteString("STORAGES MESSAGES AND WARNINGS:\n")
+		buf.WriteString("STORAGES WARNINGS:\n")
 		for _, warn := range warnings {
 			buf.WriteString(warn.Error())
 			buf.WriteByte('\n')
 		}
 		buf.WriteByte('\n')
 		buf.WriteString(out)
-		out = buf.String()
 	}
+
+	out = buf.String()
 
 	return
 }
@@ -765,7 +775,7 @@ const (
 	importStorage
 )
 
-func (g GenerateVars) writeAnsibleVarsFile(template, varFile string) (storages string, remapWarnings []error, err error) {
+func (g GenerateVars) writeAnsibleVarsFile(template, varFile string) (storages []string, remapWarnings []error, err error) {
 	var in, out *os.File
 	in, err = os.Open(template)
 	if err != nil {
@@ -787,8 +797,6 @@ func (g GenerateVars) writeAnsibleVarsFile(template, varFile string) (storages s
 
 	g.StorageDomains = StripStorageDomains(g.StorageDomains)
 
-	storagesSlice := make([]Storage, 0, 4)
-
 	indent := 0
 	hasStorages := false
 	scanner := bufio.NewScanner(in)
@@ -799,7 +807,7 @@ func (g GenerateVars) writeAnsibleVarsFile(template, varFile string) (storages s
 			if strings.HasPrefix(s, "- ") {
 				if storage.PrimaryType != "" {
 					// flush map
-					ok, rErr := storage.Remap(g.StorageDomains)
+					ok, msg, rErr := storage.Remap(g.StorageDomains)
 					if rErr != nil {
 						remapWarnings = append(remapWarnings, rErr...)
 					}
@@ -808,7 +816,7 @@ func (g GenerateVars) writeAnsibleVarsFile(template, varFile string) (storages s
 						if err = storage.WriteAnsibleMap(writer); err != nil {
 							return
 						}
-						storagesSlice = append(storagesSlice, storage)
+						storages = append(storages, msg)
 					}
 				}
 				storage.Reset()
@@ -828,7 +836,7 @@ func (g GenerateVars) writeAnsibleVarsFile(template, varFile string) (storages s
 			} else {
 				// break map
 				if storage.PrimaryType != "" {
-					ok, rErr := storage.Remap(g.StorageDomains)
+					ok, msg, rErr := storage.Remap(g.StorageDomains)
 					if rErr != nil {
 						remapWarnings = append(remapWarnings, rErr...)
 					}
@@ -837,7 +845,7 @@ func (g GenerateVars) writeAnsibleVarsFile(template, varFile string) (storages s
 						if err = storage.WriteAnsibleMap(writer); err != nil {
 							return
 						}
-						storagesSlice = append(storagesSlice, storage)
+						storages = append(storages, msg)
 					}
 				}
 
@@ -895,7 +903,7 @@ func (g GenerateVars) writeAnsibleVarsFile(template, varFile string) (storages s
 	}
 
 	if importPhase == importStorage && storage.PrimaryType != "" {
-		ok, rErr := storage.Remap(g.StorageDomains)
+		ok, msg, rErr := storage.Remap(g.StorageDomains)
 		if rErr != nil {
 			remapWarnings = append(remapWarnings, rErr...)
 		}
@@ -904,7 +912,7 @@ func (g GenerateVars) writeAnsibleVarsFile(template, varFile string) (storages s
 			if err = storage.WriteAnsibleMap(writer); err != nil {
 				return
 			}
-			storagesSlice = append(storagesSlice, storage)
+			storages = append(storages, msg)
 		}
 	}
 
@@ -925,20 +933,6 @@ func (g GenerateVars) writeAnsibleVarsFile(template, varFile string) (storages s
 			key := domain.PrimaryType + "://" + domain.PrimaryAddr + ":" + domain.PrimaryPath
 			remapWarnings = append(remapWarnings, errors.New("storage map "+key+" not used"))
 		}
-	}
-
-	if len(storagesSlice) > 0 {
-		var buf strings.Builder
-		buf.WriteString("[\n")
-		for i, s := range storagesSlice {
-			if i > 0 {
-				buf.WriteString(",\n")
-			}
-			buf.WriteString("  ")
-			s.WriteString(&buf)
-		}
-		buf.WriteString("\n]")
-		storages = buf.String()
 	}
 
 	return
