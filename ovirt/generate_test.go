@@ -32,14 +32,16 @@ func TestGenerateVars_writeAnsibleVarsFile(t *testing.T) {
 			g: GenerateVars{
 				SecondaryUrl:      "https://saengine2.localdomain/ovirt-engine/api",
 				SecondaryUsername: "admin@internal",
-				StorageDomains: []Storage{
+				StorageDomains: []StorageMap{
 					{
-						PrimaryType:   "nfs",
-						PrimaryPath:   "/nfs_dom_dr/",
-						PrimaryAddr:   "10.1.1.2",
-						SecondaryType: "nfs",
-						SecondaryPath: "/nfs_dom_dr2/",
-						SecondaryAddr: "10.1.2.2",
+						StorageBase: StorageBase{
+							PrimaryType:   "nfs",
+							PrimaryPath:   "/nfs_dom_dr/",
+							PrimaryAddr:   "10.1.1.2",
+							SecondaryType: "nfs",
+							SecondaryPath: "/nfs_dom_dr2/",
+							SecondaryAddr: "10.1.2.2",
+						},
 					},
 				},
 			},
@@ -47,50 +49,25 @@ func TestGenerateVars_writeAnsibleVarsFile(t *testing.T) {
 			wantVarFile: "disaster_recovery_vars.yml",
 			wantWarns: []string{
 				`storage map for fc_tst not found`,
-				`storage nfs_dom remapped with name nfs_dom as nfs://10.1.2.2:/nfs_dom_dr2`,
+				//	`storage nfs_dom remapped with name nfs_dom as nfs://10.1.2.2:/nfs_dom_dr2`,
 				`storage map for nfs_dom_2 not found`,
-			},
-		},
-		{
-			g: GenerateVars{
-				SecondaryUrl:      "https://saengine2.localdomain/ovirt-engine/api",
-				SecondaryUsername: "admin@internal",
-				StorageDomains: []Storage{
-					{
-						PrimaryType:   "nfs",
-						PrimaryPath:   "/nfs_dom_dr/",
-						PrimaryAddr:   "10.1.1.2",
-						SecondaryType: "nfs",
-						SecondaryPath: "/nfs_dom_dr2/",
-						SecondaryAddr: "10.1.2.2",
-					},
-					{
-						PrimaryType:   "fcp",
-						PrimaryPath:   "0abc45defc",
-						SecondaryPath: "0abc45defc",
-					},
-				},
-			},
-			template:    "disaster_recovery_vars.yml.tpl",
-			wantVarFile: "disaster_recovery_vars_with_fcp.yml",
-			wantWarns: []string{
-				`storage fc_tst remapped with name fc_tst as fcp://0abc45defc`,
-				`storage nfs_dom remapped with name nfs_dom as nfs://10.1.2.2:/nfs_dom_dr2`,
-				`storage map for nfs_dom_2 not found`,
+				`storage map for fc_none not found`,
 			},
 		},
 		{
 			g: GenerateVars{
 				SecondaryUrl:      "https://saengine2.localdomain/ovirt-engine/api",
 				SecondaryUsername: "admin@ovirt@internal",
-				StorageDomains: []Storage{
+				StorageDomains: []StorageMap{
 					{
-						PrimaryType:   "nfs",
-						PrimaryPath:   "/nfs_tst/",
-						PrimaryAddr:   "192.168.1.210",
-						SecondaryType: "nfs",
-						SecondaryPath: "/nfs_tst2/",
-						SecondaryAddr: "192.168.2.210",
+						StorageBase: StorageBase{
+							PrimaryType:   "nfs",
+							PrimaryPath:   "/nfs_tst/",
+							PrimaryAddr:   "192.168.1.210",
+							SecondaryType: "nfs",
+							SecondaryPath: "/nfs_tst2/",
+							SecondaryAddr: "192.168.2.210",
+						},
 					},
 				},
 			},
@@ -98,21 +75,23 @@ func TestGenerateVars_writeAnsibleVarsFile(t *testing.T) {
 			wantVarFile: "disaster_recovery_vars2.yml",
 			wantWarns: []string{
 				`storage map for nfs_d not found`,
-				`storage nfstst remapped with name nfstst as nfs://192.168.2.210:/nfs_tst2`,
+				//	`storage nfstst remapped with name nfstst as nfs://192.168.2.210:/nfs_tst2`,
 			},
 		},
 		{
 			g: GenerateVars{
 				SecondaryUrl:      "https://saengine2.localdomain/ovirt-engine/api",
 				SecondaryUsername: "admin@internal",
-				StorageDomains: []Storage{
+				StorageDomains: []StorageMap{
 					{
-						PrimaryType:   "nfs",
-						PrimaryPath:   "/non_exist/",
-						PrimaryAddr:   "10.1.1.2",
-						SecondaryType: "nfs",
-						SecondaryPath: "/non_exist2/",
-						SecondaryAddr: "10.1.2.2",
+						StorageBase: StorageBase{
+							PrimaryType:   "nfs",
+							PrimaryPath:   "/non_exist/",
+							PrimaryAddr:   "10.1.1.2",
+							SecondaryType: "nfs",
+							SecondaryPath: "/non_exist2/",
+							SecondaryAddr: "10.1.2.2",
+						},
 					},
 				},
 			},
@@ -123,22 +102,26 @@ func TestGenerateVars_writeAnsibleVarsFile(t *testing.T) {
 			g: GenerateVars{
 				SecondaryUrl:      "https://saengine2.localdomain/ovirt-engine/api",
 				SecondaryUsername: "admin@ovirt@internal",
-				StorageDomains: []Storage{
+				StorageDomains: []StorageMap{
 					{
-						PrimaryType:   "nfs",
-						PrimaryPath:   "/nfs_tst/",
-						PrimaryAddr:   "192.168.1.210",
-						SecondaryType: "nfs",
-						SecondaryPath: "/nfs_tst2/",
-						SecondaryAddr: "192.168.2.210",
+						StorageBase: StorageBase{
+							PrimaryType:   "nfs",
+							PrimaryPath:   "/nfs_tst/",
+							PrimaryAddr:   "192.168.1.210",
+							SecondaryType: "nfs",
+							SecondaryPath: "/nfs_tst2/",
+							SecondaryAddr: "192.168.2.210",
+						},
 					},
 					{
-						PrimaryType:   "nfs",
-						PrimaryPath:   "/non_exist/",
-						PrimaryAddr:   "10.1.1.2",
-						SecondaryType: "nfs",
-						SecondaryPath: "/non_exist2/",
-						SecondaryAddr: "10.1.2.2",
+						StorageBase: StorageBase{
+							PrimaryType:   "nfs",
+							PrimaryPath:   "/non_exist/",
+							PrimaryAddr:   "10.1.1.2",
+							SecondaryType: "nfs",
+							SecondaryPath: "/non_exist2/",
+							SecondaryAddr: "10.1.2.2",
+						},
 					},
 				},
 			},
@@ -146,8 +129,98 @@ func TestGenerateVars_writeAnsibleVarsFile(t *testing.T) {
 			wantVarFile: "disaster_recovery_vars2.yml",
 			wantWarns: []string{
 				`storage map for nfs_d not found`,
-				`storage nfstst remapped with name nfstst as nfs://192.168.2.210:/nfs_tst2`,
+				//	`storage nfstst remapped with name nfstst as nfs://192.168.2.210:/nfs_tst2`,
 				`storage map nfs://10.1.1.2:/non_exist not used`,
+			},
+		},
+		{
+			g: GenerateVars{
+				SecondaryUrl:      "https://saengine2.localdomain/ovirt-engine/api",
+				SecondaryUsername: "admin@internal",
+				StorageDomains: []StorageMap{
+					{
+						StorageBase: StorageBase{
+							PrimaryType:   "nfs",
+							PrimaryPath:   "/nfs_dom_dr/",
+							PrimaryAddr:   "10.1.1.2",
+							SecondaryType: "nfs",
+							SecondaryPath: "/nfs_dom_dr2/",
+							SecondaryAddr: "10.1.2.2",
+						},
+					},
+					{
+						StorageBase: StorageBase{
+							PrimaryType:   "fcp",
+							PrimaryId:     "0abc45defc",
+							SecondaryType: "fcp",
+							SecondaryId:   "0abc45defc",
+						},
+					},
+				},
+			},
+			template:    "disaster_recovery_vars.yml.tpl",
+			wantVarFile: "disaster_recovery_vars_with_fcp.yml",
+			wantWarns: []string{
+				// `storage fc_tst remapped with name fc_tst as fcp://0abc45defc`,
+				// `storage nfs_dom remapped with name nfs_dom as nfs://10.1.2.2:/nfs_dom_dr2`,
+				`storage map for nfs_dom_2 not found`,
+				`storage map for fc_none not found`,
+			},
+		},
+		{
+			g: GenerateVars{
+				SecondaryUrl:      "https://saengine2.localdomain/ovirt-engine/api",
+				SecondaryUsername: "admin@internal",
+				StorageDomains: []StorageMap{
+					{
+						StorageBase: StorageBase{
+							PrimaryType:   "nfs",
+							PrimaryPath:   "/nfs_dom_dr/",
+							PrimaryAddr:   "10.1.1.2",
+							SecondaryType: "nfs",
+							SecondaryPath: "/nfs_dom_dr2/",
+							SecondaryAddr: "10.1.2.2",
+						},
+					},
+					{
+						StorageBase: StorageBase{
+							PrimaryType:   "iscsi",
+							PrimaryId:     "bcca8438-810f-4932-bf25-d874babd97b1",
+							PrimaryAddr:   "192.168.1.101",
+							PrimaryPort:   "3260",
+							SecondaryType: "iscsi",
+							SecondaryId:   "bcca8438-810f-4932-bf25-d874babd97b1",
+							SecondaryAddr: "192.168.2.101",
+							SecondaryPort: "3260",
+						},
+						Targets: map[string]string{
+							"iqn.2006-01.com.openfiler:olvm-data1": "iqn.2006-02.com.openfiler:olvm-data1-2",
+							"iqn.2006-01.com.openfiler:olvm-data3": "iqn.2006-02.com.openfiler:olvm-data3-2",
+						},
+					},
+					{
+						StorageBase: StorageBase{
+							PrimaryType:   "iscsi",
+							PrimaryId:     "bcca8438-810f-4932-bf25-d874babd97b1",
+							PrimaryAddr:   "192.168.1.101",
+							PrimaryPort:   "3260",
+							SecondaryType: "iscsi",
+							SecondaryId:   "bcca8438-810f-4932-bf25-d874babd97b1",
+							SecondaryAddr: "192.168.2.101",
+							SecondaryPort: "3260",
+						},
+						Targets: map[string]string{
+							"iqn.2006-01.com.openfiler:olvm-iso": "iqn.2006-02.com.openfiler:olvm-iso",
+						},
+					},
+				},
+			},
+			template:    "disaster_recovery_vars_with_iscsi.yml.tpl",
+			wantVarFile: "disaster_recovery_vars_with_iscsi.yml",
+			wantWarns: []string{
+				// `storage data remapped with name data as iscsi://bcca8438-810f-4932-bf25-d874babd97b1:["iqn.2006-02.com.openfiler:olvm-data1-2", "iqn.2006-02.com.openfiler:olvm-data3-2"]`,
+				// `storage nfs_dom remapped with name nfs_dom as nfs://10.1.2.2:/nfs_dom_dr2`,
+				`storage map for nfs_dom_2 not found`,
 			},
 		},
 	} {

@@ -1,27 +1,34 @@
 ---
-dr_sites_primary_url: https://saengine.localdomain/ovirt-engine/api
+dr_sites_primary_url: https://saengine1.localdomain/ovirt-engine/api
 dr_sites_primary_username: admin@internal
 dr_sites_primary_ca_file: /home/user/go/src/github.com/xrm-tech/xrm-controller/ovirt/test/primary.ca
 
 # Please fill in the following properties for the secondary site: 
-dr_sites_secondary_url: # https://saengine.localdomain/ovirt-engine/api
-dr_sites_secondary_username: # admin@internal
-dr_sites_secondary_ca_file: # /var/lib/xrm-controller/ovirt/test/primary.ca
+dr_sites_secondary_url: https://saengine2.localdomain/ovirt-engine/api
+dr_sites_secondary_username: admin@internal
+dr_sites_secondary_ca_file: /var/lib/xrm-controller/ovirt/test/secondary.ca
 
 dr_import_storages:
-- dr_domain_type: fcp
+- dr_domain_type: iscsi
   dr_wipe_after_delete: False
   dr_backup: False
   dr_critical_space_action_blocker: 5
   dr_storage_domain_type: data
-  dr_primary_name: fc_tst
-  dr_primary_master_domain: True
+  dr_warning_low_space: 10
+  dr_primary_name: data
+  dr_primary_master_domain: False
   dr_primary_dc_name: Default
-  dr_domain_id: 0abc45defc
-  # Fill in the empty properties related to the secondary site
-  dr_secondary_name: # fc_tst
-  dr_secondary_master_domain: # True
-  dr_secondary_dc_name: # Default
+  dr_discard_after_delete: False
+  dr_domain_id: bcca8438-810f-4932-bf25-d874babd97b1
+  dr_primary_address: 192.168.1.101
+  dr_primary_port: 3260
+  dr_primary_target: ["iqn.2006-01.com.openfiler:olvm-data1", "iqn.2006-01.com.openfiler:olvm-data3"]
+  dr_secondary_name: data
+  dr_secondary_master_domain: False
+  dr_secondary_dc_name: Default
+  dr_secondary_address: 192.168.2.101
+  dr_secondary_port: 3260
+  dr_secondary_target: ["iqn.2006-02.com.openfiler:olvm-data1-2", "iqn.2006-02.com.openfiler:olvm-data3-2"]
 - dr_domain_type: nfs
   dr_wipe_after_delete: False
   dr_backup: False
@@ -33,48 +40,37 @@ dr_import_storages:
   dr_primary_dc_name: Default
   dr_primary_path: /nfs_dom_dr
   dr_primary_address: 10.1.1.2
-  # Fill in the empty properties related to the secondary site
   dr_secondary_name: nfs_dom
   dr_secondary_master_domain: True
   dr_secondary_dc_name: Default
   dr_secondary_path: /nfs_dom_dr2
   dr_secondary_address: 10.1.2.2
-- dr_domain_type: nfs
+- dr_domain_type: iscsi
   dr_wipe_after_delete: False
   dr_backup: False
   dr_critical_space_action_blocker: 5
   dr_storage_domain_type: data
   dr_warning_low_space: 10
-  dr_primary_name: nfs_dom_2
+  dr_primary_name: iso
   dr_primary_master_domain: True
   dr_primary_dc_name: Default
-  dr_primary_path: /nfs_dom_dr_2/
-  dr_primary_address: 10.1.1.2
-  # Fill in the empty properties related to the secondary site
-  dr_secondary_name: # nfs_dom_2
-  dr_secondary_master_domain: # True
-  dr_secondary_dc_name: # Default
-  dr_secondary_path: # /nfs_dom_dr_2/
-  dr_secondary_address: # 10.1.1.2
-- dr_domain_type: fcp
-  dr_wipe_after_delete: False
-  dr_backup: False
-  dr_critical_space_action_blocker: 5
-  dr_storage_domain_type: data
-  dr_primary_name: fc_none
-  dr_primary_master_domain: True
-  dr_primary_dc_name: Default
-  dr_domain_id: 0abc45defd
-  # Fill in the empty properties related to the secondary site
-  dr_secondary_name: # fc_none
-  dr_secondary_master_domain: # True
-  dr_secondary_dc_name: # Default
+  dr_discard_after_delete: False
+  dr_domain_id: bcca8438-810f-4932-bf25-d874babd97b1
+  dr_primary_address: 192.168.1.101
+  dr_primary_port: 3260
+  dr_primary_target: ["iqn.2006-01.com.openfiler:olvm-iso"]
+  dr_secondary_name: iso
+  dr_secondary_master_domain: True
+  dr_secondary_dc_name: Default
+  dr_secondary_address: 192.168.2.101
+  dr_secondary_port: 3260
+  dr_secondary_target: ["iqn.2006-02.com.openfiler:olvm-iso"]
 
 # Mapping for cluster
 dr_cluster_mappings:
 - primary_name: Default
   # Fill the correlated cluster name in the secondary site for cluster 'Default'
-  secondary_name: # Default
+  secondary_name: Default
 
 
 # Mapping for affinity group
@@ -87,7 +83,7 @@ dr_affinity_label_mappings:
 dr_domain_mappings: 
 - primary_name: internal-authz
   # Fill in the correlated domain in the secondary site for domain 'internal-authz'
-  secondary_name: # internal-authz
+  secondary_name: internal-authz
   
 
 
@@ -105,12 +101,12 @@ dr_network_mappings:
   primary_profile_name: ovirtmgmt
   primary_profile_id: 657e2905-1b6a-4647-a98d-0e1c261b3024
   # Fill in the correlated vnic profile properties in the secondary site for profile 'ovirtmgmt'
-  secondary_network_name: # ovirtmgmt
+  secondary_network_name: ovirtmgmt
 # Data Center name is relevant when multiple vnic profiles are maintained.
 # please uncomment it in case you have more than one DC.
 # secondary_network_dc: Default
-  secondary_profile_name: # ovirtmgmt
-  secondary_profile_id: # 657e2905-1b6a-4647-a98d-0e1c261b3024
+  secondary_profile_name: ovirtmgmt
+  secondary_profile_id: 657e2905-1b6a-4647-a98d-0e1c261b3024
 
 
 # Mapping for external LUN disks
