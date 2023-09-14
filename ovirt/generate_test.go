@@ -21,12 +21,13 @@ func errStrs(errs []error) (out []string) {
 
 func TestGenerateVars_writeAnsibleVarsFile(t *testing.T) {
 	for _, test := range []struct {
-		name        string
-		g           GenerateVars
-		template    string
-		wantErr     error
-		wantWarns   []string
-		wantVarFile string
+		name         string
+		g            GenerateVars
+		template     string
+		wantErr      error
+		wantStorages []string
+		wantWarns    []string
+		wantVarFile  string
 	}{
 		{
 			g: GenerateVars{
@@ -47,12 +48,10 @@ func TestGenerateVars_writeAnsibleVarsFile(t *testing.T) {
 			},
 			template:    "disaster_recovery_vars.yml.tpl",
 			wantVarFile: "disaster_recovery_vars.yml",
-			wantWarns: []string{
-				`storage map for fc_tst not found`,
-				//	`storage nfs_dom remapped with name nfs_dom as nfs://10.1.2.2:/nfs_dom_dr2`,
-				`storage map for nfs_dom_2 not found`,
-				`storage map for fc_none not found`,
+			wantStorages: []string{
+				`storage nfs_dom remapped with name nfs_dom as nfs://10.1.2.2:/nfs_dom_dr2`,
 			},
+			wantWarns: []string{},
 		},
 		{
 			g: GenerateVars{
@@ -73,10 +72,10 @@ func TestGenerateVars_writeAnsibleVarsFile(t *testing.T) {
 			},
 			template:    "disaster_recovery_vars2.yml.tpl",
 			wantVarFile: "disaster_recovery_vars2.yml",
-			wantWarns: []string{
-				`storage map for nfs_d not found`,
-				//	`storage nfstst remapped with name nfstst as nfs://192.168.2.210:/nfs_tst2`,
+			wantStorages: []string{
+				`storage nfstst remapped with name nfstst as nfs://192.168.2.210:/nfs_tst2`,
 			},
+			wantWarns: []string{},
 		},
 		{
 			g: GenerateVars{
@@ -127,9 +126,10 @@ func TestGenerateVars_writeAnsibleVarsFile(t *testing.T) {
 			},
 			template:    "disaster_recovery_vars2.yml.tpl",
 			wantVarFile: "disaster_recovery_vars2.yml",
+			wantStorages: []string{
+				`storage nfstst remapped with name nfstst as nfs://192.168.2.210:/nfs_tst2`,
+			},
 			wantWarns: []string{
-				`storage map for nfs_d not found`,
-				//	`storage nfstst remapped with name nfstst as nfs://192.168.2.210:/nfs_tst2`,
 				`storage map nfs://10.1.1.2:/non_exist not used`,
 			},
 		},
@@ -160,12 +160,11 @@ func TestGenerateVars_writeAnsibleVarsFile(t *testing.T) {
 			},
 			template:    "disaster_recovery_vars.yml.tpl",
 			wantVarFile: "disaster_recovery_vars_with_fcp.yml",
-			wantWarns: []string{
-				// `storage fc_tst remapped with name fc_tst as fcp://0abc45defc`,
-				// `storage nfs_dom remapped with name nfs_dom as nfs://10.1.2.2:/nfs_dom_dr2`,
-				`storage map for nfs_dom_2 not found`,
-				`storage map for fc_none not found`,
+			wantStorages: []string{
+				`storage fc_tst remapped with name fc_tst as fcp://0abc45defc`,
+				`storage nfs_dom remapped with name nfs_dom as nfs://10.1.2.2:/nfs_dom_dr2`,
 			},
+			wantWarns: []string{},
 		},
 		{
 			g: GenerateVars{
@@ -217,11 +216,12 @@ func TestGenerateVars_writeAnsibleVarsFile(t *testing.T) {
 			},
 			template:    "disaster_recovery_vars_with_iscsi.yml.tpl",
 			wantVarFile: "disaster_recovery_vars_with_iscsi.yml",
-			wantWarns: []string{
-				// `storage data remapped with name data as iscsi://bcca8438-810f-4932-bf25-d874babd97b1:["iqn.2006-02.com.openfiler:olvm-data1-2", "iqn.2006-02.com.openfiler:olvm-data3-2"]`,
-				// `storage nfs_dom remapped with name nfs_dom as nfs://10.1.2.2:/nfs_dom_dr2`,
-				`storage map for nfs_dom_2 not found`,
+			wantStorages: []string{
+				`storage data remapped with name data as iscsi://bcca8438-810f-4932-bf25-d874babd97b1:iqn.2006-02.com.openfiler:olvm-data1-2,iqn.2006-02.com.openfiler:olvm-data3-2`,
+				`storage nfs_dom remapped with name nfs_dom as nfs://10.1.2.2:/nfs_dom_dr2`,
+				`storage iso remapped with name iso as iscsi://bcca8438-810f-4932-bf25-d874babd97b1:iqn.2006-02.com.openfiler:olvm-iso`,
 			},
+			wantWarns: []string{},
 		},
 	} {
 		t.Run(test.name, func(t *testing.T) {
@@ -241,9 +241,13 @@ func TestGenerateVars_writeAnsibleVarsFile(t *testing.T) {
 
 			defer os.Remove(varFile)
 
-			if _, warns, err := g.writeAnsibleVarsFile(template, varFile); err != test.wantErr {
+			if storages, warns, err := g.writeAnsibleVarsFile(template, varFile); err != test.wantErr {
 				t.Fatalf("GenerateVars.writeAnsibleVarsFile() error = %v, want = %v", err, test.wantErr)
 			} else if err == nil {
+				if !reflect.DeepEqual(storages, test.wantStorages) {
+					t.Errorf("GenerateVars.writeAnsibleVarsFile() storages\n%#q\nwant\n%#q", storages, test.wantStorages)
+				}
+
 				warnsStr := errStrs(warns)
 				if !reflect.DeepEqual(warnsStr, test.wantWarns) {
 					t.Errorf("GenerateVars.writeAnsibleVarsFile() warnings\n%#q\nwant\n%#q", warnsStr, test.wantWarns)
