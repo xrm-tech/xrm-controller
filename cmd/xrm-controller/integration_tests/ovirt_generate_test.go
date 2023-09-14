@@ -14,7 +14,6 @@ import (
 	xrm "github.com/xrm-tech/xrm-controller/app/xrm-controller"
 	"github.com/xrm-tech/xrm-controller/ovirt"
 	"github.com/xrm-tech/xrm-controller/pkg/tests"
-	"github.com/xrm-tech/xrm-controller/pkg/utils"
 )
 
 func TestGenerate(t *testing.T) {

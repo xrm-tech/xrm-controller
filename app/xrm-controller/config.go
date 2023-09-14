@@ -34,7 +34,7 @@ func RouterInit() (app *fiber.App) {
 			return false
 		},
 		LogUsername: "username",
-		Tags:        []string{"req_body", "storages"},
+		Tags:        []string{"req_body"},
 	}))
 
 	// enable basic auth

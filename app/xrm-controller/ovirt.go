@@ -19,7 +19,6 @@ func oVirtDelete(c *fiber.Ctx) error {
 func oVirtGenerate(c *fiber.Ctx) (err error) {
 	var (
 		sitesConfig ovirt.GenerateVars
-		storages    string
 		out         string
 	)
 	if err = c.BodyParser(&sitesConfig); err != nil {
@@ -39,11 +38,7 @@ func oVirtGenerate(c *fiber.Ctx) (err error) {
 		c.Context().SetUserValue("req_body", utils.UnsafeString(bodyPasswordCleanup(c.Request().Body())))
 	}
 
-	storages, out, err = sitesConfig.Generate(name, Cfg.OVirtStoreDir)
-
-	if Cfg.Logger.GetLevel() == zerolog.DebugLevel || Cfg.Logger.GetLevel() == zerolog.TraceLevel {
-		c.Context().SetUserValue("storages", storages)
-	}
+	_, out, err = sitesConfig.Generate(name, Cfg.OVirtStoreDir)
 
 	if err == nil {
 		return c.Status(http.StatusOK).SendString(out)
