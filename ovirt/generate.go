@@ -541,13 +541,14 @@ func (m *Storage) WriteString(buf *strings.Builder) {
 
 // GenerateVars is OVirt engines API address/credentials
 type GenerateVars struct {
-	PrimaryUrl        string       `json:"site_primary_url"`
-	PrimaryUsername   string       `json:"site_primary_username"`
-	PrimaryPassword   string       `json:"site_primary_password"`
-	SecondaryUrl      string       `json:"site_secondary_url"`
-	SecondaryUsername string       `json:"site_secondary_username"`
-	SecondaryPassword string       `json:"site_secondary_password"`
-	StorageDomains    []StorageMap `json:"storage_domains"`
+	PrimaryUrl        string            `json:"site_primary_url"`
+	PrimaryUsername   string            `json:"site_primary_username"`
+	PrimaryPassword   string            `json:"site_primary_password"`
+	SecondaryUrl      string            `json:"site_secondary_url"`
+	SecondaryUsername string            `json:"site_secondary_username"`
+	SecondaryPassword string            `json:"site_secondary_password"`
+	StorageDomains    []StorageMap      `json:"storage_domains"`
+	Remap             map[string]string `json:"remap"`
 }
 
 func (g GenerateVars) Generate(name, dir string) (storages []string, out string, err error) {
@@ -768,6 +769,29 @@ func (g GenerateVars) writeAnsiblePwdDile(pwdFile string) error {
 	return err
 }
 
+type nameBuf struct {
+	buf []string
+	pos int
+}
+
+func (name *nameBuf) Set(s string, indent int, n int) bool {
+	if indent == len(name.buf) {
+		name.buf = append(name.buf, s)
+	} else if indent < len(name.buf) {
+		pos := indent / n
+		name.buf[pos] = s
+		name.buf = name.buf[:pos+1]
+	} else {
+		return false
+	}
+
+	return true
+}
+
+func (name *nameBuf) String() string {
+	return strings.Join(name.buf, ".")
+}
+
 type importState int8
 
 const (
@@ -793,9 +817,15 @@ func (g GenerateVars) writeAnsibleVarsFile(template, varFile string) (storages [
 	var (
 		importPhase importState
 		storage     Storage
+		// name        nameBuf
+		// remap       bool
 	)
 
 	g.StorageDomains = StripStorageDomains(g.StorageDomains)
+
+	// if len(g.Remap) > 0 {
+	// 	remap = true
+	// }
 
 	indent := 0
 	hasStorages := false
@@ -858,13 +888,22 @@ func (g GenerateVars) writeAnsibleVarsFile(template, varFile string) (storages [
 				} else {
 					importPhase = importNone
 
+					// TODO: remap names started with #
 					k, v, ok := splitKV(s, true)
 					if ok {
+						// if remap && name.Set(k, indent, 2) {
+						// 	key := name.String()
+						// 	if newVal, ok := g.Remap[key]; ok && newVal != "" {
+						// 		v = newVal
+						// 	}
+						// }
 						if err = writeKVLn(writer, k, v); err != nil {
 							return
 						}
-					} else if err = writeStringLn(writer, s); err != nil {
-						return
+					} else {
+						if err = writeStringLn(writer, s); err != nil {
+							return
+						}
 					}
 				}
 			}
@@ -890,13 +929,22 @@ func (g GenerateVars) writeAnsibleVarsFile(template, varFile string) (storages [
 				importPhase = importStorage
 				storage.Reset()
 			} else {
+				// TODO: remap names started with #
 				k, v, ok := splitKV(s, true)
 				if ok {
+					// if remap && name.Set(k, indent, 2) {
+					// 	key := name.String()
+					// 	if newVal, ok := g.Remap[key]; ok && newVal != "" {
+					// 		v = newVal
+					// 	}
+					// }
 					if err = writeKVLn(writer, k, v); err != nil {
 						return
 					}
-				} else if err = writeStringLn(writer, s); err != nil {
-					return
+				} else {
+					if err = writeStringLn(writer, s); err != nil {
+						return
+					}
 				}
 			}
 		}

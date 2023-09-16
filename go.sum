@@ -28,6 +28,8 @@ github.com/msaf1980/fiberlog v0.0.3 h1:OHQyy1mq0lRcT9yQlivdUM9z/raDF75Rojz2QragC
 github.com/msaf1980/fiberlog v0.0.3/go.mod h1:IwlMQMHkE+mk74J9YGH3RQqD2aRQZAt+fzg8n3nO4NA=
 github.com/msaf1980/go-clipper v0.0.24 h1:eYDzGKHHNc5PqdcAwFXOX57d1HVKa6aQpwPS6eim4LM=
 github.com/msaf1980/go-clipper v0.0.24/go.mod h1:GbsbnO1b7xrsmQ3tdeM6tqPQbqqU5rHhv7iFqCBblRQ=
+github.com/msaf1980/go-stringutils v0.1.5 h1:b6247xM3CtoL2JyEXFZvLAKBXSiQeX1WTbI3NsFgvS8=
+github.com/msaf1980/go-stringutils v0.1.5/go.mod h1:xpicaTIpLAVzL0gUQkciB1zjypDGKsOCI25cKQbRQYA=
 github.com/otiai10/copy v1.9.0 h1:7KFNiCgZ91Ru4qW4CWPf/7jqtxLagGRmIxWldPP9VY4=
 github.com/otiai10/copy v1.9.0/go.mod h1:hsfX19wcn0UWIHUQ3/4fHuehhk2UyArQ9dVFAn3FczI=
 github.com/otiai10/curr v0.0.0-20150429015615-9b4961190c95/go.mod h1:9qAhocn7zKJG+0mI8eUu6xqkFDYS2kb2saOteoSB3cE=
@@ -49,6 +51,7 @@ github.com/rs/zerolog v1.29.0/go.mod h1:NILgTygv/Uej1ra5XxGf82ZFSLk58MFGAUS2o6us
 github.com/stretchr/objx v0.1.0/go.mod h1:HFkY916IF+rwdDfMAkV7OtwuqBVzrE8GR6GFx+wExME=
 github.com/stretchr/objx v0.4.0/go.mod h1:YvHI0jy2hoMjB+UWwv71VJQ9isScKT/TqJzVSSt89Yw=
 github.com/stretchr/objx v0.5.0/go.mod h1:Yh+to48EsGEfYuaHDzXPcE3xhTkx73EhmCGUpEOglKo=
+github.com/stretchr/testify v1.7.0/go.mod h1:6Fq8oRcR53rry900zMqJjRRixrwX3KX962/h/Wwjteg=
 github.com/stretchr/testify v1.7.1/go.mod h1:6Fq8oRcR53rry900zMqJjRRixrwX3KX962/h/Wwjteg=
 github.com/stretchr/testify v1.8.0/go.mod h1:yNjHg4UonilssWZ8iaSj1OCr/vHnekPRkoO+kdMU+MU=
 github.com/stretchr/testify v1.8.1/go.mod h1:w2LPCIKwWwSfY2zedu0+kehJoqGctiVI29o6fzry7u4=

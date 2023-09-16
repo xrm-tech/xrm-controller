@@ -9,6 +9,7 @@ require (
 	github.com/juju/fslock v0.0.0-20160525022230-4d5c94c67b4b
 	github.com/msaf1980/fiberlog v0.0.3
 	github.com/msaf1980/go-clipper v0.0.24
+	github.com/msaf1980/go-stringutils v0.1.5
 	github.com/otiai10/copy v1.9.0
 	github.com/ovirt/go-ovirt v4.3.4+incompatible
 	github.com/rs/zerolog v1.29.0
