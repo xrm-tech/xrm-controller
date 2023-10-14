@@ -17,6 +17,7 @@ import (
 	cp "github.com/otiai10/copy"
 	ovirtsdk4 "github.com/ovirt/go-ovirt"
 
+	"github.com/xrm-tech/xrm-controller/pkg/ayaml"
 	"github.com/xrm-tech/xrm-controller/pkg/utils"
 )
 
@@ -62,28 +63,6 @@ func validateOvirtCon(url string, insecure bool, caFile, username, password stri
 	} else {
 		return err
 	}
-}
-
-func writeStringLn(w *bufio.Writer, s string) (err error) {
-	if _, err = w.WriteString(s); err != nil {
-		return
-	}
-	err = w.WriteByte('\n')
-	return
-}
-
-func writeKVLn(w *bufio.Writer, k, v string) (err error) {
-	if _, err = w.WriteString(k); err != nil {
-		return
-	}
-	if _, err = w.WriteString(": "); err != nil {
-		return
-	}
-	if _, err = w.WriteString(v); err != nil {
-		return
-	}
-	err = w.WriteByte('\n')
-	return
 }
 
 var (
@@ -213,42 +192,6 @@ type StorageMap struct {
 	Found bool `json:"-"` // found during remap flag
 }
 
-type Storage struct {
-	StorageBase
-
-	PrimaryTargets   []string
-	SecondaryTargets []string
-
-	Params []KV
-}
-
-func (m *Storage) Reset() {
-	m.PrimaryType = ""
-	m.PrimaryDC = ""
-	m.PrimaryName = ""
-	m.PrimaryId = ""
-	m.PrimaryPath = ""
-	m.PrimaryAddr = ""
-	m.PrimaryPort = ""
-	m.SecondaryType = ""
-	m.SecondaryDC = ""
-	m.SecondaryName = ""
-	m.SecondaryId = ""
-	m.SecondaryPath = ""
-	m.SecondaryAddr = ""
-	m.SecondaryPort = ""
-
-	if len(m.Params) > 0 {
-		m.Params = make([]KV, 0, len(m.Params))
-	}
-	if len(m.PrimaryTargets) > 0 {
-		m.PrimaryTargets = make([]string, 0, len(m.PrimaryTargets))
-	}
-	if len(m.SecondaryTargets) > 0 {
-		m.SecondaryTargets = make([]string, 0, len(m.SecondaryTargets))
-	}
-}
-
 // ["iqn.2006-01.com.openfiler:olvm-data1", "iqn.2006-01.com.openfiler:olvm-data2"]
 func splitYamlStringList(v string) (vals []string, err error) {
 	if strings.HasPrefix(v, `["`) && strings.HasSuffix(v, `"]`) {
@@ -266,183 +209,83 @@ func joinYamlStringList(vals []string) string {
 	return `["` + strings.Join(vals, `", "`) + `"]`
 }
 
-func (m *Storage) Set(s string) (err error) {
-	if strings.HasPrefix(s, "#") {
-		return
+func clearMap(m map[string]string) {
+	for k := range m {
+		delete(m, k)
 	}
-	k, v, ok := strings.Cut(s, ": ")
-	if ok {
-		v = strings.TrimPrefix(v, " ")
-		v = strings.TrimPrefix(v, "# ")
-		switch k {
-		case "dr_domain_type":
-			m.PrimaryType = v
-			m.SecondaryType = v
-		case "dr_primary_name":
-			m.PrimaryName = v
-		case "dr_primary_dc_name":
-			m.PrimaryDC = v
-		case "dr_primary_path": // nfs
-			m.PrimaryPath = v
-		case "dr_primary_address": // nfs, iscsi
-			m.PrimaryAddr = v
-		case "dr_primary_port": // iscsi
-			m.PrimaryPort = v
-		case "dr_primary_target":
-			m.PrimaryTargets, err = splitYamlStringList(v)
-		case "dr_secondary_name":
-			m.SecondaryName = v
-		case "dr_secondary_dc_name":
-			m.SecondaryDC = v
-		case "dr_secondary_address": // nfs, iscsi
-			m.SecondaryAddr = v
-		case "dr_secondary_path": // nfs
-			m.SecondaryPath = v
-		case "dr_secondary_port": // iscsi
-			m.SecondaryPort = v
-		case "dr_secondary_target":
-			m.SecondaryTargets, err = splitYamlStringList(v)
-		case "dr_domain_id": // fcp, iscsi
-			m.PrimaryId = v
-			m.SecondaryId = v
-		}
-		m.Params = append(m.Params, KV{K: k, V: v})
-	}
-	return
 }
 
-func (m *Storage) validate() (errs []error) {
-	if m.SecondaryName == "" {
-		errs = append(errs, errors.New("storage for "+m.PrimaryName+" without secondary name"))
-	}
-	if m.SecondaryDC == "" {
-		errs = append(errs, errors.New("storage for "+m.PrimaryName+" without secondary dc"))
-	}
-
-	if m.PrimaryType == StorageNFS {
-		if m.PrimaryAddr == "" {
-			errs = append(errs, errors.New("storage for "+m.PrimaryName+" without primary address"))
-		}
-		if m.PrimaryPath == "" {
-			errs = append(errs, errors.New("storage for "+m.PrimaryName+" without primary path"))
-		}
-		if m.PrimaryId != "" {
-			errs = append(errs, errors.New("storage for "+m.PrimaryName+" can't contain primary id"))
-		}
-		if m.PrimaryPort != "" {
-			errs = append(errs, errors.New("storage for "+m.PrimaryName+" can't contain primary port"))
-		}
-
-		if m.SecondaryAddr == "" {
-			errs = append(errs, errors.New("storage for "+m.PrimaryName+" without secondary address"))
-		}
-		if m.SecondaryPath == "" {
-			errs = append(errs, errors.New("storage for "+m.PrimaryName+" without secondary path"))
-		}
-
-	} else if m.PrimaryType == StorageFCP {
-		if m.PrimaryId == "" {
-			errs = append(errs, errors.New("storage for "+m.PrimaryName+" without primary id"))
-		}
-		if m.PrimaryAddr != "" {
-			errs = append(errs, errors.New("storage for "+m.PrimaryName+" can't contain primary address"))
-		}
-		if m.PrimaryPath != "" {
-			errs = append(errs, errors.New("storage for "+m.PrimaryName+" can't contain primary path"))
-		}
-		if m.PrimaryPort != "" {
-			errs = append(errs, errors.New("storage for "+m.PrimaryName+" can't contain primary port"))
-		}
-
-		if m.PrimaryId != m.SecondaryId {
-			errs = append(errs, errors.New("storage for "+m.PrimaryName+" with secondary id mismatch"))
-		}
-
-	} else if m.PrimaryType == StorageISCSI {
-		if m.PrimaryId == "" {
-			errs = append(errs, errors.New("storage for "+m.PrimaryName+" without primary id"))
-		}
-		if m.PrimaryAddr == "" {
-			errs = append(errs, errors.New("storage for "+m.PrimaryName+" without primary address"))
-		}
-		if m.PrimaryPort == "" {
-			errs = append(errs, errors.New("storage for "+m.PrimaryName+" without primary port"))
-		}
-		if m.PrimaryPath != "" {
-			errs = append(errs, errors.New("storage for "+m.PrimaryName+" can't contain primary path"))
-		}
-
-		if m.PrimaryId != m.SecondaryId {
-			errs = append(errs, errors.New("storage for "+m.PrimaryName+" with secondary id mismatch"))
-		}
-		if m.SecondaryAddr == "" {
-			errs = append(errs, errors.New("storage for "+m.PrimaryName+" without secondary address"))
-		}
-		if m.SecondaryPort == "" {
-			errs = append(errs, errors.New("storage for "+m.PrimaryName+" without secondary port"))
+func remapStorageMap(values []*ayaml.Node, storageDomains []StorageMap) (success bool, msg string, errs []error) {
+	m := make(map[string]string)
+	for _, val := range values {
+		if s, ok := val.Value.(string); ok {
+			m[val.Key] = s
 		}
 	}
 
-	return
-}
-
-func (m *Storage) Remap(storageDomains []StorageMap) (success bool, msg string, errs []error) {
-	if errs = m.validate(); len(errs) > 0 {
-		return
-	}
-	switch m.PrimaryType {
-	case StorageNFS:
-		m.PrimaryPath = strings.TrimRight(m.PrimaryPath, "/")
-		m.SecondaryPath = strings.TrimRight(m.SecondaryPath, "/")
+	domainType := m["dr_domain_type"]
+	switch domainType {
+	case "nfs":
+		m["dr_primary_path"] = strings.TrimRight(m["dr_primary_path"], "/")
+		m["dr_secondary_path"] = strings.TrimRight(m["dr_secondary_path"], "/")
 		for n, domain := range storageDomains {
-			if m.PrimaryType != domain.PrimaryType || domain.PrimaryType != domain.SecondaryType {
+			if domainType != domain.PrimaryType || domain.PrimaryType != domain.SecondaryType {
+				continue
+			}
+			if m["dr_primary_address"] != domain.PrimaryAddr || m["dr_primary_path"] != domain.PrimaryPath {
 				continue
 			}
 
-			if m.PrimaryAddr != domain.PrimaryAddr || m.PrimaryPath != domain.PrimaryPath {
-				continue
-			}
-
-			m.SecondaryAddr = domain.SecondaryAddr
-			m.SecondaryPath = domain.SecondaryPath
+			m["dr_secondary_address"] = domain.SecondaryAddr
+			m["dr_secondary_path"] = domain.SecondaryPath
 
 			storageDomains[n].Found = true
 
-			key := m.SecondaryType + "://" + m.SecondaryAddr + ":" + m.SecondaryPath
+			key := domainType + "://" + m["dr_secondary_address"] + ":" + m["dr_secondary_path"]
 			success = true
-			msg = "storage " + m.PrimaryName + " remapped with name " + m.SecondaryName + " as " + key
+			msg = "storage " + m["dr_primary_name"] + " remapped with name " + m["dr_secondary_name"] + " as " + key
+
+			break
 		}
 	case StorageFCP:
 		for n, domain := range storageDomains {
-			if m.PrimaryType != domain.PrimaryType || domain.PrimaryType != domain.SecondaryType {
+			if domainType != domain.PrimaryType || domain.PrimaryType != domain.SecondaryType {
 				continue
 			}
-
-			if m.PrimaryId != domain.PrimaryId {
+			if m["dr_domain_id"] != domain.PrimaryId {
 				continue
 			}
 
 			storageDomains[n].Found = true
 
-			key := m.SecondaryType + "://" + m.SecondaryId
+			key := domainType + "://" + m["dr_domain_id"]
 			success = true
-			msg = "storage " + m.PrimaryName + " remapped with name " + m.SecondaryName + " as " + key
+			msg = "storage " + m["dr_primary_name"] + " remapped with name " + m["dr_secondary_name"] + " as " + key
+
+			break
 		}
 	case StorageISCSI:
 		for n, domain := range storageDomains {
-			if m.PrimaryType != domain.PrimaryType || domain.PrimaryType != domain.SecondaryType {
+			if domainType != domain.PrimaryType || domain.PrimaryType != domain.SecondaryType {
+				continue
+			}
+			if m["dr_domain_id"] != domain.PrimaryId {
+				continue
+			}
+			if m["dr_primary_address"] != domain.PrimaryAddr || m["dr_primary_port"] != domain.PrimaryPort {
 				continue
 			}
 
-			if m.PrimaryAddr != domain.PrimaryAddr || m.PrimaryPort != domain.PrimaryPort {
-				continue
+			mPrimaryTargets, err := splitYamlStringList(m["dr_primary_target"])
+			if err != nil {
+				errs = append(errs, err)
 			}
 
-			primaryTargets := make([]string, 0, len(m.PrimaryTargets))
-			secondaryTargets := make([]string, 0, len(m.PrimaryTargets))
-			for i := 0; i < len(m.PrimaryTargets); i++ {
-				if s, ok := domain.Targets[m.PrimaryTargets[i]]; ok {
-					primaryTargets = append(primaryTargets, m.PrimaryTargets[i])
+			primaryTargets := make([]string, 0, len(mPrimaryTargets))
+			secondaryTargets := make([]string, 0, len(mPrimaryTargets))
+			for i := 0; i < len(mPrimaryTargets); i++ {
+				if s, ok := domain.Targets[mPrimaryTargets[i]]; ok {
+					primaryTargets = append(primaryTargets, mPrimaryTargets[i])
 					secondaryTargets = append(secondaryTargets, s)
 				}
 			}
@@ -450,93 +293,74 @@ func (m *Storage) Remap(storageDomains []StorageMap) (success bool, msg string, 
 				continue
 			}
 
-			m.PrimaryTargets = primaryTargets
-			m.SecondaryTargets = secondaryTargets
+			m["dr_primary_target"] = joinYamlStringList(primaryTargets)
+			m["dr_secondary_target"] = joinYamlStringList(secondaryTargets)
 
-			m.SecondaryAddr = domain.SecondaryAddr
-			m.SecondaryPort = domain.SecondaryPort
+			m["dr_secondary_address"] = domain.SecondaryAddr
+			m["dr_secondary_port"] = domain.SecondaryPort
 
 			storageDomains[n].Found = true
 
-			key := m.SecondaryType + "://" + m.SecondaryId
+			key := domainType + "://" + m["dr_domain_id"]
 			success = true
-			targets := strings.Join(m.SecondaryTargets, ",")
-			msg = "storage " + m.PrimaryName + " remapped with name " + m.SecondaryName + " as " + key + ":" + targets
+			targets := strings.Join(secondaryTargets, ",")
+			msg = "storage " + m["dr_primary_name"] + " remapped with name " + m["dr_secondary_name"] + " as " + key + ":" + targets
+
+			break
+		}
+	}
+
+	if success {
+		// return remapped values back
+		for _, val := range values {
+			if _, ok := val.Value.(string); ok {
+				if v, ok := m[val.Key]; ok {
+					val.Value = v
+				}
+			}
 		}
 	}
 
 	return
 }
 
-func (m *Storage) remap(name, originValue string) string {
-	switch name {
-	case "dr_domain_type":
-		return m.PrimaryType
-	case "dr_primary_name":
-		return m.PrimaryName
-	case "dr_primary_dc_name":
-		return m.PrimaryDC
-	case "dr_primary_path": // nfs
-		return m.PrimaryPath
-	case "dr_primary_address": // nfs
-		return m.PrimaryAddr
-	case "dr_primary_port": //iscsi
-		return m.PrimaryPort
-	case "dr_primary_target":
-		return joinYamlStringList(m.PrimaryTargets)
-	case "dr_secondary_name":
-		return m.SecondaryName
-	case "dr_secondary_dc_name":
-		return m.SecondaryDC
-	case "dr_secondary_address": // nfs
-		return m.SecondaryAddr
-	case "dr_secondary_path": // nfs
-		return m.SecondaryPath
-	case "dr_secondary_port": //iscsi
-		return m.SecondaryPort
-	case "dr_secondary_target":
-		return joinYamlStringList(m.SecondaryTargets)
-	case "dr_domain_id": // fcp, iscsi
-		return m.PrimaryId
-	default:
-		return originValue
-	}
-}
-
-func (m *Storage) WriteAnsibleMap(w *bufio.Writer) error {
-
-	for i := 0; i < len(m.Params); i++ {
-		var prefixedKey string
-		if i == 0 {
-			prefixedKey = "- " + m.Params[i].K
-		} else {
-			prefixedKey = "  " + m.Params[i].K
+func RemapStorages(node *ayaml.Node, storageDomains []StorageMap) (success bool, msgs []string, errs []error) {
+	if nodes, ok := node.Value.([]*ayaml.Node); ok {
+		for _, node := range nodes {
+			if node.Key == "dr_import_storages" {
+				success = true
+				storages := node.Value.([]*ayaml.Node)
+				var newStorages []*ayaml.Node
+				for _, v := range storages {
+					if v.Value != nil {
+						var (
+							ok   bool
+							msg  string
+							err1 []error
+						)
+						values := v.Value.([]*ayaml.Node)
+						if ok, msg, err1 = remapStorageMap(values, storageDomains); ok {
+							newStorages = append(newStorages, v)
+						}
+						if msg != "" {
+							msgs = append(msgs, msg)
+						}
+						if len(err1) > 0 {
+							errs = append(errs, err1...)
+						}
+					}
+				}
+				node.Value = newStorages
+				if len(newStorages) == 0 {
+					success = false
+				}
+				break
+			}
 		}
-
-		if err := writeKVLn(w, prefixedKey, m.remap(m.Params[i].K, m.Params[i].V)); err != nil {
-			return err
-		}
+	} else {
+		errs = append(errs, ErrAnsibleFileNoStorages)
 	}
-
-	return nil
-}
-
-func (m *Storage) WriteString(buf *strings.Builder) {
-	buf.WriteByte('{')
-
-	for i := 0; i < len(m.Params); i++ {
-		if i == 0 {
-			_ = buf.WriteByte(' ')
-		} else {
-			_, _ = buf.WriteString(", ")
-		}
-		_, _ = buf.WriteString(m.Params[i].K)
-		_, _ = buf.WriteString(": \"")
-		_, _ = buf.WriteString(m.remap(m.Params[i].K, m.Params[i].V))
-		_, _ = buf.WriteString("\"")
-	}
-
-	buf.WriteByte('}')
+	return
 }
 
 // GenerateVars is OVirt engines API address/credentials
@@ -775,156 +599,60 @@ const (
 	importStorage
 )
 
+func (g GenerateVars) rewrite(node *ayaml.Node) {
+	if nodes, ok := node.Value.([]*ayaml.Node); ok {
+		for _, node := range nodes {
+			if node.Type == ayaml.NodeString {
+				switch node.Key {
+				case "dr_sites_secondary_url":
+					node.Value = g.SecondaryUrl
+				case "dr_sites_secondary_username":
+					node.Value = g.SecondaryUsername
+				case "dr_sites_secondary_ca_file":
+					node.Value = strings.Replace(node.Value.(string), "/primary.ca", "/secondary.ca", 1)
+				}
+			}
+		}
+	}
+}
+
 func (g GenerateVars) writeAnsibleVarsFile(template, varFile string) (storages []string, remapWarnings []error, err error) {
-	var in, out *os.File
-	in, err = os.Open(template)
-	if err != nil {
+	var (
+		in, out *os.File
+		nodes   *ayaml.Node
+	)
+	if in, err = os.Open(template); err != nil {
 		return
 	}
 	defer in.Close()
 
-	out, err = os.OpenFile(varFile, os.O_RDWR|os.O_CREATE, 0644)
-	if err != nil {
+	g.StorageDomains = StripStorageDomains(g.StorageDomains)
+
+	if nodes, err = ayaml.Decode(in); err != nil {
+		return
+	}
+
+	ok, msg, rErr := RemapStorages(nodes, g.StorageDomains)
+	if len(rErr) > 0 {
+		remapWarnings = append(remapWarnings, rErr...)
+	}
+	if ok {
+		storages = msg
+	}
+
+	g.rewrite(nodes)
+
+	if out, err = os.OpenFile(varFile, os.O_RDWR|os.O_CREATE, 0644); err != nil {
 		return
 	}
 	defer out.Close()
-	writer := bufio.NewWriter(out)
 
-	var (
-		importPhase importState
-		storage     Storage
-	)
-
-	g.StorageDomains = StripStorageDomains(g.StorageDomains)
-
-	indent := 0
-	hasStorages := false
-	scanner := bufio.NewScanner(in)
-	for scanner.Scan() {
-		s := scanner.Text()
-		switch importPhase {
-		case importStorage:
-			if strings.HasPrefix(s, "- ") {
-				if storage.PrimaryType != "" {
-					// flush map
-					ok, msg, rErr := storage.Remap(g.StorageDomains)
-					if rErr != nil {
-						remapWarnings = append(remapWarnings, rErr...)
-					}
-					if ok {
-						hasStorages = true
-						if err = storage.WriteAnsibleMap(writer); err != nil {
-							return
-						}
-						storages = append(storages, msg)
-					}
-				}
-				storage.Reset()
-
-				indent = startBytes(s[1:], ' ') + 1
-				if indent != 2 {
-					err = ErrImportStorageItem
-					return
-				}
-				if err = storage.Set(s[indent:]); err != nil {
-					return
-				}
-			} else if strings.HasPrefix(s, "  ") {
-				if err = storage.Set(s[2:]); err != nil {
-					return
-				}
-			} else {
-				// break map
-				if storage.PrimaryType != "" {
-					ok, msg, rErr := storage.Remap(g.StorageDomains)
-					if rErr != nil {
-						remapWarnings = append(remapWarnings, rErr...)
-					}
-					if ok {
-						hasStorages = true
-						if err = storage.WriteAnsibleMap(writer); err != nil {
-							return
-						}
-						storages = append(storages, msg)
-					}
-				}
-
-				storage.Reset()
-
-				if s == "" {
-					if err = writeStringLn(writer, s); err != nil {
-						return
-					}
-				} else {
-					importPhase = importNone
-
-					k, v, ok := splitKV(s, true)
-					if ok {
-						if err = writeKVLn(writer, k, v); err != nil {
-							return
-						}
-					} else if err = writeStringLn(writer, s); err != nil {
-						return
-					}
-				}
-			}
-		default:
-			if strings.HasPrefix(s, "dr_sites_secondary_url: ") {
-				if err = writeKVLn(writer, "dr_sites_secondary_url", g.SecondaryUrl); err != nil {
-					return
-				}
-			} else if strings.HasPrefix(s, "dr_sites_secondary_username: ") {
-				if err = writeKVLn(writer, "dr_sites_secondary_username", g.SecondaryUsername); err != nil {
-					return
-				}
-			} else if strings.HasPrefix(s, "dr_sites_secondary_ca_file: ") {
-				k, v, _ := splitKV(s, true)
-				if err = writeKVLn(writer, k, strings.Replace(v, "primary.ca", "secondary.ca", 1)); err != nil {
-					return
-				}
-			} else if s == "dr_import_storages:" {
-				if err = writeStringLn(writer, s); err != nil {
-					return
-				}
-
-				importPhase = importStorage
-				storage.Reset()
-			} else {
-				k, v, ok := splitKV(s, true)
-				if ok {
-					if err = writeKVLn(writer, k, v); err != nil {
-						return
-					}
-				} else if err = writeStringLn(writer, s); err != nil {
-					return
-				}
-			}
-		}
-	}
-
-	if importPhase == importStorage && storage.PrimaryType != "" {
-		ok, msg, rErr := storage.Remap(g.StorageDomains)
-		if rErr != nil {
-			remapWarnings = append(remapWarnings, rErr...)
-		}
-		if ok {
-			hasStorages = true
-			if err = storage.WriteAnsibleMap(writer); err != nil {
-				return
-			}
-			storages = append(storages, msg)
-		}
-	}
-
-	if err = writer.Flush(); err != nil {
+	w := bufio.NewWriter(out)
+	if err = nodes.Write(w); err != nil {
 		return
 	}
 
-	err = scanner.Err()
-	if err != nil {
-		return
-	}
-	if !hasStorages {
+	if !ok {
 		err = ErrStorageRemapEmptyResult
 	}
 

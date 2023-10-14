@@ -224,10 +224,10 @@ func TestGenerateVars_writeAnsibleVarsFile(t *testing.T) {
 			wantWarns: []string{},
 		},
 	} {
-		t.Run(test.name, func(t *testing.T) {
+		t.Run(test.name+"#"+test.wantVarFile, func(t *testing.T) {
 			g := test.g
 
-			f, err := os.CreateTemp("", "")
+			f, err := os.CreateTemp("", "xrm-controller")
 			if err != nil {
 				t.Fatal(err)
 			}

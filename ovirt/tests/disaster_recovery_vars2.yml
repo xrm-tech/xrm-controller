@@ -9,7 +9,6 @@ dr_sites_secondary_username: admin@ovirt@internal
 dr_sites_secondary_ca_file: /var/lib/xrm-controller/ovirt/test/secondary.ca
 
 dr_import_storages:
-
 - dr_domain_type: nfs
   dr_wipe_after_delete: False
   dr_backup: False
@@ -21,6 +20,7 @@ dr_import_storages:
   dr_primary_dc_name: Default
   dr_primary_path: /nfs_tst
   dr_primary_address: 192.168.1.210
+  # Fill in the empty properties related to the secondary site
   dr_secondary_name: nfstst
   dr_secondary_master_domain: True
   dr_secondary_dc_name: Default
@@ -41,7 +41,7 @@ dr_affinity_group_mappings:
 dr_affinity_label_mappings:
 
 # Mapping for domain
-dr_domain_mappings: 
+dr_domain_mappings:
 - primary_name: internal-authz
   # Fill in the correlated domain in the secondary site for domain 'internal-authz'
   secondary_name: internal-authz
@@ -53,9 +53,9 @@ dr_domain_mappings:
 
 # Mapping for role
 # Fill in any roles which should be mapped between sites.
-dr_role_mappings: 
-- primary_name: 
-  secondary_name: 
+dr_role_mappings:
+- primary_name:
+  secondary_name:
 
 dr_network_mappings:
 - primary_network_name: ovirtmgmt

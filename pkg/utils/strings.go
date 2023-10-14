@@ -25,3 +25,10 @@ func Clone(s string) string {
 	copy(b, s)
 	return UnsafeString(b)
 }
+
+func StringsReverse(a []string) {
+	l := len(a) - 1
+	for i := 0; i < len(a)/2; i++ {
+		a[i], a[l-i] = a[l-i], a[i]
+	}
+}
