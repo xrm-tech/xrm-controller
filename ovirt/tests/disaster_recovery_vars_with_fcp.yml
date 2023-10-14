@@ -18,6 +18,7 @@ dr_import_storages:
   dr_primary_master_domain: True
   dr_primary_dc_name: Default
   dr_domain_id: 0abc45defc
+  # Fill in the empty properties related to the secondary site
   dr_secondary_name: fc_tst
   dr_secondary_master_domain: True
   dr_secondary_dc_name: Default
@@ -32,6 +33,7 @@ dr_import_storages:
   dr_primary_dc_name: Default
   dr_primary_path: /nfs_dom_dr
   dr_primary_address: 10.1.1.2
+  # Fill in the empty properties related to the secondary site
   dr_secondary_name: nfs_dom
   dr_secondary_master_domain: True
   dr_secondary_dc_name: Default
@@ -52,18 +54,17 @@ dr_affinity_group_mappings:
 dr_affinity_label_mappings:
 
 # Mapping for domain
-dr_domain_mappings: 
+dr_domain_mappings:
 - primary_name: internal-authz
   # Fill in the correlated domain in the secondary site for domain 'internal-authz'
   secondary_name: internal-authz
-  
 
 
 # Mapping for role
 # Fill in any roles which should be mapped between sites.
-dr_role_mappings: 
-- primary_name: 
-  secondary_name: 
+dr_role_mappings:
+- primary_name:
+  secondary_name:
 
 dr_network_mappings:
 - primary_network_name: ovirtmgmt
