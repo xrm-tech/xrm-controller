@@ -1,10 +1,10 @@
-FROM  golang:1.20.5 AS builder
+FROM  golang:1.20.10 AS builder
 
 COPY ./ /go/src/github.com/xrm-tech/xrm-controller
 
 WORKDIR /go/src/github.com/xrm-tech/xrm-controller
-RUN CGO_ENABLED=0 make build
 
+RUN CGO_ENABLED=0 make build
 
 FROM almalinux:8.8
 
