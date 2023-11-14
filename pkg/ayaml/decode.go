@@ -62,13 +62,70 @@ func (node *Node) ParentKey() string {
 	return strings.Join(keys, ".")
 }
 
+func (node *Node) Locate(key string) (dict bool, n int) {
+	if node.Type == NodeDict {
+		dict = true
+		if values, ok := node.Value.([]*Node); ok {
+			for ; n < len(values); n++ {
+				if values[n].Key == key {
+					break
+				}
+			}
+			if n == len(values) {
+				n = -1
+			}
+		} else {
+			n = -1
+		}
+	} else {
+		n = -1
+	}
+	return
+}
+
+func (node *Node) Delete(key string) {
+	if key == "" {
+		return
+	}
+	_, i := node.Locate(key)
+	if i != -1 {
+		values := node.Value.([]*Node)
+		last := len(values) - 1
+		if i == 0 {
+			node.Value = values[1:]
+		} else if i == last {
+			node.Value = values[:last]
+		} else if i < last {
+			newValues := make([]*Node, 0, len(values)-1)
+			copy(newValues, values[:i])
+			copy(newValues[i:], values[i+1:])
+			node.Value = newValues
+		}
+	}
+}
+
+func (node *Node) Set(key, value string) (ok bool) {
+	if key == "" {
+		return
+	}
+	var i int
+	if ok, i = node.Locate(key); ok {
+		values := node.Value.([]*Node)
+		if i == -1 {
+			node.Value = append(values, &Node{Type: NodeString, Value: value, Parent: node})
+		} else {
+			values[i].Type = NodeString
+			values[i].Value = value
+		}
+	}
+	return
+}
+
 func Decode(r io.Reader) (node *Node, err error) {
 	p, err := newParser(r)
 	if err == nil {
 		var items []*item
-		if items, err = p.parse(); err == io.EOF {
-			err = nil
-		} else if err == nil {
+		if items, err = p.parse(); err == nil {
 			err = ErrorUnclosedYAML
 			return
 		}
@@ -114,13 +171,6 @@ func buildComment(node *Node, item *item) {
 	} else {
 		node.Value = append(node.Value.([]*Node), newNode)
 	}
-}
-
-func commentedIndent(s string) (loc int) {
-	if loc = strings.Index(s, "#"); loc == -1 {
-		loc = 0
-	}
-	return
 }
 
 func buildListItems(node *Node, items []*item) (i int, err error) {
