@@ -592,6 +592,8 @@ func (g GenerateVars) writeAnsibleVarsFile(template, varFile string) (storages [
 
 	g.rewrite(nodes)
 
+	ayaml.Rewrite(nodes, g.Rewrite)
+
 	if out, err = os.OpenFile(varFile, os.O_RDWR|os.O_CREATE, 0644); err != nil {
 		return
 	}
