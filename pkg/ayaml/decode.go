@@ -35,6 +35,7 @@ type Node struct {
 	Key       string
 	Value     interface{}
 	Commented bool
+	Deleted   bool
 
 	Index  int
 	Indent int
@@ -83,25 +84,31 @@ func (node *Node) Locate(key string) (dict bool, n int) {
 	return
 }
 
-func (node *Node) Delete(key string) {
+func (node *Node) deleteItem(i int) (ok bool) {
+	values := node.Value.([]*Node)
+	if i >= 0 && i < len(values) {
+		node.Value.([]*Node)[i].Deleted = true
+		ok = true
+	}
+	return
+}
+
+func (node *Node) Delete(key string) (ok bool) {
 	if key == "" {
 		return
 	}
 	_, i := node.Locate(key)
 	if i != -1 {
-		values := node.Value.([]*Node)
-		last := len(values) - 1
-		if i == 0 {
-			node.Value = values[1:]
-		} else if i == last {
-			node.Value = values[:last]
-		} else if i < last {
-			newValues := make([]*Node, 0, len(values)-1)
-			copy(newValues, values[:i])
-			copy(newValues[i:], values[i+1:])
-			node.Value = newValues
-		}
+		ok = node.deleteItem(i)
 	}
+	return
+}
+
+func (node *Node) DeleteItem(i int) (ok bool) {
+	if i < 0 || node.Type != NodeList {
+		return
+	}
+	return node.deleteItem(i)
 }
 
 func (node *Node) Set(key, value string) (ok bool) {
@@ -117,6 +124,22 @@ func (node *Node) Set(key, value string) (ok bool) {
 			values[i].Type = NodeString
 			values[i].Value = value
 		}
+	}
+	return
+}
+
+func (node *Node) SetItem(i int, value string) (ok bool) {
+	if i < -1 || node.Type != NodeList {
+		return
+	}
+	values := node.Value.([]*Node)
+	if i == -1 {
+		node.Value = append(values, &Node{Type: NodeString, Value: value, Parent: node})
+		ok = true
+	} else if i < len(values) {
+		values[i].Type = NodeString
+		values[i].Value = value
+		ok = true
 	}
 	return
 }

@@ -39,7 +39,13 @@ func diffNodes(got, want *Node, indent string, arrayN int, diff *[]string) {
 				}
 				*diff = append(*diff, fmt.Sprintf("%s    Commented %v != %v", indent, got.Commented, want.Commented))
 			}
-
+			if got.Deleted != want.Deleted {
+				if !different {
+					different = true
+					*diff = append(*diff, fmt.Sprintf("---%s (line %d)", got.ParentKey(), got.Line))
+				}
+				*diff = append(*diff, fmt.Sprintf("%s    Deleted %v != %v", indent, got.Deleted, want.Deleted))
+			}
 			if got.Type != want.Type {
 				if !different {
 					// different = true

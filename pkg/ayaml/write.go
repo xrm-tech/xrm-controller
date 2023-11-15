@@ -49,6 +49,9 @@ func writeListIndent(bw *bufio.Writer, n int) (err error) {
 }
 
 func (node *Node) write(w *bufio.Writer, indent bool) (err error) {
+	if node.Deleted {
+		return
+	}
 	switch node.Type {
 	case NodeString:
 		if indent {
