@@ -69,10 +69,10 @@ func TestGenerateVars_writeAnsibleVarsFile(t *testing.T) {
 						},
 					},
 				},
-				Rewrite: map[string]string{
-					"dr_lun_mappings":                   "~", // delete
-					"dr_role_mappings[0].primary_name":  "PRIMARY",
-					"dr_role_mappings[].secondary_name": "SECONDARY",
+				AdditionalParams: []string{
+					"dr_lun_mappings=~", // delete
+					"dr_role_mappings[0].primary_name=PRIMARY",
+					"dr_role_mappings[].secondary_name=SECONDARY",
 				},
 			},
 			template:    "disaster_recovery_vars.yml.tpl",

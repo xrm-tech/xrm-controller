@@ -7,10 +7,10 @@ import (
 
 func TestRewrite(t *testing.T) {
 	tests := []struct {
-		name    string
-		in      *Node
-		rewrite map[string]string
-		want    *Node
+		name              string
+		in                *Node
+		additional_params []string
+		want              *Node
 	}{
 		{
 			name: "rewrite",
@@ -67,14 +67,14 @@ func TestRewrite(t *testing.T) {
 					},
 				},
 			},
-			rewrite: map[string]string{
-				"dr_role_mappings[].secondary_name": "~", // delete
-				"dr_role_mappings[1]":               "~", // delete
-				"dr_role_mappings[2]":               "update",
-				"dr_lun_mappings":                   "~", // delete
-				"dr_role_mappings[0].primary_name":  "PRIMARY",
-				"list_rewrite[]":                    "update_item",
-				"list_delete[]":                     "~", // delete
+			additional_params: []string{
+				"dr_role_mappings[].secondary_name=~", // delete
+				"dr_role_mappings[1]=~",               // delete
+				"dr_role_mappings[2]=update",
+				"dr_lun_mappings=~", // delete
+				"dr_role_mappings[0].primary_name=PRIMARY",
+				"list_rewrite[]=update_item",
+				"list_delete[]=~", // delete
 			},
 			want: &Node{
 				Type: NodeDict,
@@ -197,12 +197,12 @@ func TestRewrite(t *testing.T) {
 					{Type: NodeDict, Key: "dr_lun_mappings"},
 				},
 			},
-			rewrite: map[string]string{
-				"dr_sites_secondary_username":       "test@internal",
-				"dr_role_mappings[].secondary_name": "~", // delete
-				"dr_role_mappings[1]":               "~", // delete
-				"dr_role_mappings[2]":               "update",
-				"dr_lun_mappings":                   "~", // delete
+			additional_params: []string{
+				"dr_sites_secondary_username=test@internal",
+				"dr_role_mappings[].secondary_name=~", // delete
+				"dr_role_mappings[1]=~",               // delete
+				"dr_role_mappings[2]=update",
+				"dr_lun_mappings=~", // delete
 			},
 			want: &Node{
 				Type: NodeDict,
@@ -276,7 +276,7 @@ func TestRewrite(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			Rewrite(tt.in, tt.rewrite)
+			Rewrite(tt.in, tt.additional_params)
 
 			var diff []string
 			diffNodes(tt.in, tt.want, "", -1, &diff)
