@@ -321,14 +321,14 @@ func RemapStorages(node *ayaml.Node, storageDomains []StorageMap) (success bool,
 
 // GenerateVars is OVirt engines API address/credentials
 type GenerateVars struct {
-	PrimaryUrl        string            `json:"site_primary_url"`
-	PrimaryUsername   string            `json:"site_primary_username"`
-	PrimaryPassword   string            `json:"site_primary_password"`
-	SecondaryUrl      string            `json:"site_secondary_url"`
-	SecondaryUsername string            `json:"site_secondary_username"`
-	SecondaryPassword string            `json:"site_secondary_password"`
-	StorageDomains    []StorageMap      `json:"storage_domains"`
-	Rewrite           map[string]string `json:"rewrite"` // ~ for delete
+	PrimaryUrl        string       `json:"site_primary_url"`
+	PrimaryUsername   string       `json:"site_primary_username"`
+	PrimaryPassword   string       `json:"site_primary_password"`
+	SecondaryUrl      string       `json:"site_secondary_url"`
+	SecondaryUsername string       `json:"site_secondary_username"`
+	SecondaryPassword string       `json:"site_secondary_password"`
+	StorageDomains    []StorageMap `json:"storage_domains"`
+	AdditionalParams  []string     `json:"additional_params"` // key=value, set value to ~ for delete
 }
 
 func (g GenerateVars) Generate(name, dir string) (storages []string, out string, err error) {
@@ -592,7 +592,7 @@ func (g GenerateVars) writeAnsibleVarsFile(template, varFile string) (storages [
 
 	g.rewrite(nodes)
 
-	ayaml.Rewrite(nodes, g.Rewrite)
+	ayaml.Rewrite(nodes, g.AdditionalParams)
 
 	if out, err = os.OpenFile(varFile, os.O_RDWR|os.O_CREATE, 0644); err != nil {
 		return

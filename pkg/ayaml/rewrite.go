@@ -54,14 +54,17 @@ func newFilter(key string) Filter {
 // "dr_role_mappings[2]":               "update"
 // "dr_lun_mappings":                   "~"  for delete
 // "dr_role_mappings[0].primary_name":  "PRIMARY"
-func Rewrite(nodes *Node, remap map[string]string) {
-	for k, v := range remap {
-		keys := strings.Split(k, ".")
-		if len(keys) == 0 || keys[0] == "" {
-			continue
-		}
+func Rewrite(nodes *Node, remap []string) {
+	for _, r := range remap {
+		k, v, ok := strings.Cut(r, "=")
+		if ok {
+			keys := strings.Split(k, ".")
+			if len(keys) == 0 || keys[0] == "" {
+				continue
+			}
 
-		rewriteNodes(nodes, keys, v)
+			rewriteNodes(nodes, keys, v)
+		}
 	}
 }
 
