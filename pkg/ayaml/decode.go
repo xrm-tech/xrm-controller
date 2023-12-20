@@ -35,6 +35,7 @@ type Node struct {
 	Key       string
 	Value     interface{}
 	Commented bool
+	Deleted   bool
 
 	Index  int
 	Indent int
@@ -62,13 +63,92 @@ func (node *Node) ParentKey() string {
 	return strings.Join(keys, ".")
 }
 
+func (node *Node) Locate(key string) (dict bool, n int) {
+	if node.Type == NodeDict {
+		dict = true
+		if values, ok := node.Value.([]*Node); ok {
+			for ; n < len(values); n++ {
+				if values[n].Key == key {
+					break
+				}
+			}
+			if n == len(values) {
+				n = -1
+			}
+		} else {
+			n = -1
+		}
+	} else {
+		n = -1
+	}
+	return
+}
+
+func (node *Node) deleteItem(i int) (ok bool) {
+	values := node.Value.([]*Node)
+	if i >= 0 && i < len(values) {
+		node.Value.([]*Node)[i].Deleted = true
+		ok = true
+	}
+	return
+}
+
+func (node *Node) Delete(key string) (ok bool) {
+	if key == "" {
+		return
+	}
+	_, i := node.Locate(key)
+	if i != -1 {
+		ok = node.deleteItem(i)
+	}
+	return
+}
+
+func (node *Node) DeleteItem(i int) (ok bool) {
+	if i < 0 || node.Type != NodeList {
+		return
+	}
+	return node.deleteItem(i)
+}
+
+func (node *Node) Set(key, value string) (ok bool) {
+	if key == "" {
+		return
+	}
+	var i int
+	if ok, i = node.Locate(key); ok {
+		values := node.Value.([]*Node)
+		if i == -1 {
+			node.Value = append(values, &Node{Type: NodeString, Value: value, Parent: node})
+		} else {
+			values[i].Type = NodeString
+			values[i].Value = value
+		}
+	}
+	return
+}
+
+func (node *Node) SetItem(i int, value string) (ok bool) {
+	if i < -1 || node.Type != NodeList {
+		return
+	}
+	values := node.Value.([]*Node)
+	if i == -1 {
+		node.Value = append(values, &Node{Type: NodeString, Value: value, Parent: node})
+		ok = true
+	} else if i < len(values) {
+		values[i].Type = NodeString
+		values[i].Value = value
+		ok = true
+	}
+	return
+}
+
 func Decode(r io.Reader) (node *Node, err error) {
 	p, err := newParser(r)
 	if err == nil {
 		var items []*item
-		if items, err = p.parse(); err == io.EOF {
-			err = nil
-		} else if err == nil {
+		if items, err = p.parse(); err == nil {
 			err = ErrorUnclosedYAML
 			return
 		}
@@ -114,13 +194,6 @@ func buildComment(node *Node, item *item) {
 	} else {
 		node.Value = append(node.Value.([]*Node), newNode)
 	}
-}
-
-func commentedIndent(s string) (loc int) {
-	if loc = strings.Index(s, "#"); loc == -1 {
-		loc = 0
-	}
-	return
 }
 
 func buildListItems(node *Node, items []*item) (i int, err error) {

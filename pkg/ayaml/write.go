@@ -49,6 +49,9 @@ func writeListIndent(bw *bufio.Writer, n int) (err error) {
 }
 
 func (node *Node) write(w *bufio.Writer, indent bool) (err error) {
+	if node.Deleted {
+		return
+	}
 	switch node.Type {
 	case NodeString:
 		if indent {
@@ -76,8 +79,10 @@ func (node *Node) write(w *bufio.Writer, indent bool) (err error) {
 		if node.Value != nil {
 			values := node.Value.([]*Node)
 			for i, v := range values {
-				if err = v.write(w, indent || i > 0); err != nil {
-					break
+				if !v.Deleted {
+					if err = v.write(w, indent || i > 0); err != nil {
+						break
+					}
 				}
 			}
 		}
@@ -99,11 +104,13 @@ func (node *Node) write(w *bufio.Writer, indent bool) (err error) {
 		if node.Value != nil {
 			values := node.Value.([]*Node)
 			for _, v := range values {
-				if err = writeListIndent(w, node.Indent); err != nil {
-					return
-				}
-				if err = v.write(w, false); err != nil {
-					break
+				if !v.Deleted {
+					if err = writeListIndent(w, node.Indent); err != nil {
+						return
+					}
+					if err = v.write(w, false); err != nil {
+						break
+					}
 				}
 			}
 		}

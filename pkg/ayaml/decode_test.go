@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"os"
 	"path"
-	"reflect"
 	"runtime"
 	"strings"
 	"testing"
@@ -40,10 +39,16 @@ func diffNodes(got, want *Node, indent string, arrayN int, diff *[]string) {
 				}
 				*diff = append(*diff, fmt.Sprintf("%s    Commented %v != %v", indent, got.Commented, want.Commented))
 			}
-
-			if got.Type != want.Type {
+			if got.Deleted != want.Deleted {
 				if !different {
 					different = true
+					*diff = append(*diff, fmt.Sprintf("---%s (line %d)", got.ParentKey(), got.Line))
+				}
+				*diff = append(*diff, fmt.Sprintf("%s    Deleted %v != %v", indent, got.Deleted, want.Deleted))
+			}
+			if got.Type != want.Type {
+				if !different {
+					// different = true
 					*diff = append(*diff, fmt.Sprintf("---%s (line %d)", got.ParentKey(), got.Line))
 				}
 				*diff = append(*diff, fmt.Sprintf("%s    Type %q != %q", indent, got.Type.String(), want.Type.String()))
@@ -65,13 +70,13 @@ func diffNodes(got, want *Node, indent string, arrayN int, diff *[]string) {
 				case string:
 					if wantV, ok := want.Value.(string); !ok {
 						if !different {
-							different = true
+							// different = true
 							*diff = append(*diff, fmt.Sprintf("---%s (line %d)", got.ParentKey(), got.Line))
 						}
 						*diff = append(*diff, fmt.Sprintf("%s    Value %q != %+v", indent, gotV, wantV))
 					} else if gotV != wantV {
 						if !different {
-							different = true
+							// different = true
 							*diff = append(*diff, fmt.Sprintf("---%s (line %d)", got.ParentKey(), got.Line))
 						}
 						*diff = append(*diff, fmt.Sprintf("%s    Value %q != %q", indent, gotV, wantV))
@@ -79,7 +84,7 @@ func diffNodes(got, want *Node, indent string, arrayN int, diff *[]string) {
 				case []*Node:
 					if wantV, ok := want.Value.([]*Node); !ok {
 						if !different {
-							different = true
+							// different = true
 							*diff = append(*diff, fmt.Sprintf("---%s (line %d)", got.ParentKey(), got.Line))
 						}
 						// *diff = append(*diff, fmt.Sprintf("%s    Value %+v != %+v", indent, gotV, wantV))
@@ -109,7 +114,7 @@ func diffNodes(got, want *Node, indent string, arrayN int, diff *[]string) {
 				case *Node:
 					if wantV, ok := want.Value.(*Node); !ok {
 						if !different {
-							different = true
+							// different = true
 							*diff = append(*diff, fmt.Sprintf("---%s (line %d)", got.ParentKey(), got.Line))
 						}
 						*diff = append(*diff, fmt.Sprintf("%s+      %+v", indent, gotV))
@@ -451,12 +456,10 @@ func TestDecode(t *testing.T) {
 				t.Errorf("Decode() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
-			if !reflect.DeepEqual(node, tt.wantNode) {
-				var diff []string
-				diffNodes(node, tt.wantNode, "", -1, &diff)
-				if len(diff) > 0 {
-					t.Errorf("Decode() =\n%s", strings.Join(diff, "\n"))
-				}
+			var diff []string
+			diffNodes(node, tt.wantNode, "", -1, &diff)
+			if len(diff) > 0 {
+				t.Errorf("Decode() =\n%s", strings.Join(diff, "\n"))
 			}
 		})
 	}

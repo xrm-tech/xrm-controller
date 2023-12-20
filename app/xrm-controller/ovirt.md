@@ -12,9 +12,11 @@ Generate config `/ovirt/generate/:name`
  
   - site_secondary_username
  
-   - site_secondary_password
+  - site_secondary_password
  
-   - storage_domains (require all storage map)
+  - storage_domains
+  
+  - remap 
 
 Example:
 

@@ -56,6 +56,36 @@ func TestGenerateVars_writeAnsibleVarsFile(t *testing.T) {
 		{
 			g: GenerateVars{
 				SecondaryUrl:      "https://saengine2.localdomain/ovirt-engine/api",
+				SecondaryUsername: "admin@internal",
+				StorageDomains: []StorageMap{
+					{
+						StorageBase: StorageBase{
+							PrimaryType:   "nfs",
+							PrimaryPath:   "/nfs_dom_dr/",
+							PrimaryAddr:   "10.1.1.2",
+							SecondaryType: "nfs",
+							SecondaryPath: "/nfs_dom_dr2/",
+							SecondaryAddr: "10.1.2.2",
+						},
+					},
+				},
+				AdditionalParams: []string{
+					"dr_lun_mappings=~",       // delete
+					"dr_cluster_mappings[]=~", // delete sub-items
+					"dr_role_mappings[0].primary_name=PRIMARY",
+					"dr_role_mappings[].secondary_name=SECONDARY",
+				},
+			},
+			template:    "disaster_recovery_vars.yml.tpl",
+			wantVarFile: "disaster_recovery_vars_remap.yml",
+			wantStorages: []string{
+				`storage nfs_dom remapped with name nfs_dom as nfs://10.1.2.2:/nfs_dom_dr2`,
+			},
+			wantWarns: []string{},
+		},
+		{
+			g: GenerateVars{
+				SecondaryUrl:      "https://saengine2.localdomain/ovirt-engine/api",
 				SecondaryUsername: "admin@ovirt@internal",
 				StorageDomains: []StorageMap{
 					{

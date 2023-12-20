@@ -7,11 +7,9 @@ import (
 	"os"
 	"os/exec"
 	"path"
-	"regexp"
 	"strconv"
 	"strings"
 	"time"
-	"unicode/utf8"
 
 	"github.com/juju/fslock"
 	cp "github.com/otiai10/copy"
@@ -22,7 +20,6 @@ import (
 )
 
 var (
-	ErrImportStorageItem       = errors.New("dr_import_storages item parse error")
 	ErrStorageRemapEmptyResult = errors.New("dr_import_storages remap result epmty")
 	ErrTemplateDirNotExist     = errors.New("ovirt template dir not exist")
 	ErrDirAlreadyExist         = errors.New("dir already exist")
@@ -63,41 +60,6 @@ func validateOvirtCon(url string, insecure bool, caFile, username, password stri
 	} else {
 		return err
 	}
-}
-
-var (
-	commentRe = regexp.MustCompile(`^ *#`)
-)
-
-func splitKV(s string, uncomment bool) (k, v string, ok bool) {
-	if commentRe.MatchString(s) {
-		return
-	}
-	k, v, ok = strings.Cut(s, ":")
-	if ok {
-		k = strings.TrimRight(k, " ")
-		v = strings.TrimLeft(v, " ")
-		if uncomment && strings.HasPrefix(v, "#") {
-			v = strings.TrimLeft(v, "#")
-			v = strings.TrimLeft(v, " ")
-		}
-		if v == "" {
-			ok = false
-		}
-	}
-	return
-}
-
-func startBytes(s string, r rune) (n int) {
-	l := utf8.RuneLen(r)
-	for _, c := range s {
-		if c == r {
-			n += l
-		} else {
-			break
-		}
-	}
-	return
 }
 
 func StripStorageDomains(s []StorageMap) []StorageMap {
@@ -207,12 +169,6 @@ func joinYamlStringList(vals []string) string {
 		return "[]"
 	}
 	return `["` + strings.Join(vals, `", "`) + `"]`
-}
-
-func clearMap(m map[string]string) {
-	for k := range m {
-		delete(m, k)
-	}
 }
 
 func remapStorageMap(values []*ayaml.Node, storageDomains []StorageMap) (success bool, msg string, errs []error) {
@@ -372,6 +328,7 @@ type GenerateVars struct {
 	SecondaryUsername string       `json:"site_secondary_username"`
 	SecondaryPassword string       `json:"site_secondary_password"`
 	StorageDomains    []StorageMap `json:"storage_domains"`
+	AdditionalParams  []string     `json:"additional_params"` // key=value, set value to ~ for delete
 }
 
 func (g GenerateVars) Generate(name, dir string) (storages []string, out string, err error) {
@@ -592,13 +549,6 @@ func (g GenerateVars) writeAnsiblePwdDile(pwdFile string) error {
 	return err
 }
 
-type importState int8
-
-const (
-	importNone importState = iota
-	importStorage
-)
-
 func (g GenerateVars) rewrite(node *ayaml.Node) {
 	if nodes, ok := node.Value.([]*ayaml.Node); ok {
 		for _, node := range nodes {
@@ -641,6 +591,8 @@ func (g GenerateVars) writeAnsibleVarsFile(template, varFile string) (storages [
 	}
 
 	g.rewrite(nodes)
+
+	ayaml.Rewrite(nodes, g.AdditionalParams)
 
 	if out, err = os.OpenFile(varFile, os.O_RDWR|os.O_CREATE, 0644); err != nil {
 		return
