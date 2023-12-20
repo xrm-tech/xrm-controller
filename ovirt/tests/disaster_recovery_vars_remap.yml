@@ -29,9 +29,6 @@ dr_import_storages:
 
 # Mapping for cluster
 dr_cluster_mappings:
-- primary_name: Default
-  # Fill the correlated cluster name in the secondary site for cluster 'Default'
-  secondary_name: Default
 
 
 # Mapping for affinity group
