@@ -70,7 +70,8 @@ func TestGenerateVars_writeAnsibleVarsFile(t *testing.T) {
 					},
 				},
 				AdditionalParams: []string{
-					"dr_lun_mappings=~", // delete
+					"dr_lun_mappings=~",       // delete
+					"dr_cluster_mappings[]=~", // delete sub-items
 					"dr_role_mappings[0].primary_name=PRIMARY",
 					"dr_role_mappings[].secondary_name=SECONDARY",
 				},
