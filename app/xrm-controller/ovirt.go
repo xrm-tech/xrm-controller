@@ -75,3 +75,29 @@ func oVirtFailback(c *fiber.Ctx) (err error) {
 		return fiber.NewError(http.StatusInternalServerError, err.Error()+"\n"+out)
 	}
 }
+
+func oVirtViewPlanAll(c *fiber.Ctx) (err error) {
+	var (
+		out string
+	)
+
+	if out, err = ovirt.ViewAll(Cfg.OVirtStoreDir); err == nil {
+		return c.Status(http.StatusOK).SendString(out)
+	} else {
+		return fiber.NewError(http.StatusInternalServerError, err.Error()+"\n"+out)
+	}
+}
+
+func oVirtViewPlan(c *fiber.Ctx) (err error) {
+	var (
+		out string
+	)
+
+	name := c.Params("name")
+
+	if out, err = ovirt.View(name, Cfg.OVirtStoreDir); err == nil {
+		return c.Status(http.StatusOK).SendString(out)
+	} else {
+		return fiber.NewError(http.StatusInternalServerError, err.Error()+"\n"+out)
+	}
+}
