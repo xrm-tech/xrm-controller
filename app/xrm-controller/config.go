@@ -45,6 +45,8 @@ func RouterInit() (app *fiber.App) {
 	app.Post("/ovirt/generate/:name", oVirtGenerate)
 	app.Get("/ovirt/failover/:name", oVirtFailover)
 	app.Get("/ovirt/failback/:name", oVirtFailback)
+	app.Get("/ovirt/view", oVirtViewPlanAll)
+	app.Get("/ovirt/view/:name", oVirtViewPlan)
 
 	return
 }

@@ -37,3 +37,7 @@ curl -i -u admin:password -X POST -H "Content-Type: application/json" -d '{
 Delete config `/ovirt/delete/:name`
 
 Failover (for generated config) `/ovirt/failover/:name`
+
+List generated plans `/ovirt/view`
+
+View generated plan dr vars file `/ovirt/view/:name`
