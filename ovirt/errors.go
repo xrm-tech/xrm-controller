@@ -2,7 +2,6 @@ package ovirt
 
 import (
 	"errors"
-	"strings"
 )
 
 var (
@@ -12,14 +11,3 @@ var (
 	ErrInProgress            = errors.New("another operation in progress")
 	ErrAnsibleNotFound       = errors.New("ansible-playbook not found")
 )
-
-type Errors []string
-
-func (errs Errors) Error() string {
-	var buf strings.Builder
-	for _, e := range errs {
-		buf.WriteString(e)
-		buf.WriteByte('\n')
-	}
-	return buf.String()
-}

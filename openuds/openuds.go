@@ -38,6 +38,35 @@ type GenerateVars struct {
 	ServicePoolName string `json:"09_service_pool_name" yaml:"09_service_pool_name"`
 }
 
+func (g GenerateVars) Validate() error {
+	var errs utils.Errors
+
+	if g.PrimaryIP == "" {
+		errs = append(errs, "01_broker_primary_ip is empty")
+	}
+	if g.PrimaryUsername == "" {
+		errs = append(errs, "02_broker_primary_username is empty")
+	}
+	if g.PrimaryPassword == "" {
+		errs = append(errs, "site_primary_password is empty")
+	}
+
+	if g.SecondaryIP == "" {
+		errs = append(errs, "05_broker_secondary_ip is empty")
+	}
+	if g.SecondaryUsername == "" {
+		errs = append(errs, "06_broker_secondary_username is empty")
+	}
+	if g.SecondaryPassword == "" {
+		errs = append(errs, "08_broker_secondary_password is empty")
+	}
+
+	if len(errs) > 0 {
+		return errs
+	}
+	return nil
+}
+
 func Generate(name, dir string, cfg GenerateVars) (out string, err error) {
 	path, err := exec.LookPath("xrm-openuds-generate.py")
 	if err != nil {

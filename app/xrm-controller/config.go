@@ -9,13 +9,13 @@ import (
 )
 
 type Config struct {
-	StoreDir      string
-	OVirtStoreDir string
-	Listen        string
-	TLSCert       string
-	TLSKey        string
-	Users         map[string]string
-	Logger        zerolog.Logger
+	OVirtStoreDir   string
+	OpenUDSStoreDir string
+	Listen          string
+	TLSCert         string
+	TLSKey          string
+	Users           map[string]string
+	Logger          zerolog.Logger
 }
 
 var (
@@ -41,10 +41,19 @@ func RouterInit() (app *fiber.App) {
 	app.Use(basicauth.New(basicauth.Config{Users: Cfg.Users}))
 
 	// OVirt
-	app.Get("/ovirt/delete/:name", oVirtDelete)
-	app.Post("/ovirt/generate/:name", oVirtGenerate)
-	app.Get("/ovirt/failover/:name", oVirtFailover)
-	app.Get("/ovirt/failback/:name", oVirtFailback)
+	if Cfg.OVirtStoreDir != "" {
+		app.Get("/ovirt/delete/:name", oVirtDelete)
+		app.Post("/ovirt/generate/:name", oVirtGenerate)
+		app.Get("/ovirt/failover/:name", oVirtFailover)
+		app.Get("/ovirt/failback/:name", oVirtFailback)
+	}
+
+	// OpenUDS
+	if Cfg.OpenUDSStoreDir != "" {
+		app.Get("/openuds/delete/:name", openUDSDelete)
+		app.Post("/openuds/generate/:name", openUDSGenerate)
+		app.Get("/openuds/failover/:name", openUDSFailover)
+	}
 
 	return
 }

@@ -12,6 +12,7 @@ require (
 	github.com/otiai10/copy v1.9.0
 	github.com/ovirt/go-ovirt v4.3.4+incompatible
 	github.com/rs/zerolog v1.29.0
+	gopkg.in/yaml.v2 v2.4.0
 )
 
 require (

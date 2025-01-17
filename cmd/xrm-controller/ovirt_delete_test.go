@@ -24,7 +24,7 @@ func TestDelete(t *testing.T) {
 	if xrm.Cfg.OVirtStoreDir, err = os.MkdirTemp("", "xrm-controller"); err != nil {
 		t.Fatal(err)
 	}
-	defer os.RemoveAll(xrm.Cfg.StoreDir)
+	defer os.RemoveAll(xrm.Cfg.OVirtStoreDir)
 
 	request := "http://" + xrm.Cfg.Listen + "/ovirt/delete/test"
 	fileName := path.Join(xrm.Cfg.OVirtStoreDir, "test/disaster_recovery_vars.yml")
@@ -93,7 +93,7 @@ func TestDeleteFilter(t *testing.T) {
 	if xrm.Cfg.OVirtStoreDir, err = os.MkdirTemp("", "xrm-controller"); err != nil {
 		t.Fatal(err)
 	}
-	defer os.RemoveAll(xrm.Cfg.StoreDir)
+	defer os.RemoveAll(xrm.Cfg.OVirtStoreDir)
 
 	request := "http://" + xrm.Cfg.Listen + "/ovirt/delete/test%2F..%2F..%2F..%2FetcTEST"
 	fileName := path.Join(xrm.Cfg.OVirtStoreDir, "test/disaster_recovery_vars.yml")

@@ -10,6 +10,17 @@ import (
 	"time"
 )
 
+type Errors []string
+
+func (errs Errors) Error() string {
+	var buf strings.Builder
+	for _, e := range errs {
+		buf.WriteString(e)
+		buf.WriteByte('\n')
+	}
+	return buf.String()
+}
+
 type HttpError struct {
 	Code int
 }

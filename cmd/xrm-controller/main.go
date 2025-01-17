@@ -3,7 +3,6 @@ package main
 import (
 	"fmt"
 	"os"
-	"path"
 	"strings"
 
 	"github.com/msaf1980/go-clipper"
@@ -25,8 +24,10 @@ func main() {
 	registry := clipper.NewRegistry("xrm-controller")
 	rootCmd, _ := registry.Register("", "") // root command
 
-	rootCmd.AddString("dir", "d", "/var/lib/xrm-controller", &xrmcontroller.Cfg.StoreDir, "dir").
-		AttachEnv("XRM_CONTROLLER_DIR")
+	rootCmd.AddString("dir", "d", "", &xrmcontroller.Cfg.OVirtStoreDir, "dir").
+		AttachEnv("XRM_CONTROLLER_OVIRT_DIR")
+	rootCmd.AddString("dir", "d", "", &xrmcontroller.Cfg.OpenUDSStoreDir, "dir").
+		AttachEnv("XRM_CONTROLLER_OVPENUDS_DIR")
 	rootCmd.AddString("listen", "l", ":8080", &xrmcontroller.Cfg.Listen, "listen address").
 		AttachEnv("XRM_CONTROLLER_LISTEN")
 	// TODO: password protected key, get cert/key files from external storage or env vars
@@ -63,14 +64,9 @@ func main() {
 		}
 	}
 
-	if xrmcontroller.Cfg.StoreDir == "" {
-		log.Fatal().Msg("store dir can not be empty")
+	if xrmcontroller.Cfg.OVirtStoreDir != "" && !utils.DirExists(xrmcontroller.Cfg.OVirtStoreDir) {
+		log.Fatal().Str("store_dir", xrmcontroller.Cfg.OVirtStoreDir).Msg("store dir not exist")
 	}
-	if !utils.DirExists(xrmcontroller.Cfg.StoreDir) {
-		log.Fatal().Str("store_dir", xrmcontroller.Cfg.StoreDir).Msg("store dir not exist")
-	}
-
-	xrmcontroller.Cfg.OVirtStoreDir = path.Join(xrmcontroller.Cfg.StoreDir, "ovirt")
 
 	app := xrmcontroller.RouterInit()
 	// TODO: implement ssl, basic auth and ip acl

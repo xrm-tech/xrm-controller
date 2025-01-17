@@ -444,7 +444,7 @@ func (g GenerateVars) Generate(name, dir string) (storages []string, out string,
 }
 
 func (g GenerateVars) Validate() error {
-	var errs Errors
+	var errs utils.Errors
 
 	if g.PrimaryUrl == "" {
 		errs = append(errs, "site_primary_url is empty")

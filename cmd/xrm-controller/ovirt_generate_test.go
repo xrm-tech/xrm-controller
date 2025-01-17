@@ -22,7 +22,7 @@ func TestGenerateValidate(t *testing.T) {
 	if xrm.Cfg.OVirtStoreDir, err = os.MkdirTemp("", "xrm-controller"); err != nil {
 		t.Fatal(err)
 	}
-	defer os.RemoveAll(xrm.Cfg.StoreDir)
+	defer os.RemoveAll(xrm.Cfg.OVirtStoreDir)
 
 	request := "http://" + xrm.Cfg.Listen + "/ovirt/generate/test"
 	// fileName := path.Join(ovirtStoreDir, "test/disaster_recovery_vars.yml")
@@ -91,7 +91,7 @@ func TestGenerateFiltering(t *testing.T) {
 	if xrm.Cfg.OVirtStoreDir, err = os.MkdirTemp("", "xrm-controller"); err != nil {
 		t.Fatal(err)
 	}
-	defer os.RemoveAll(xrm.Cfg.StoreDir)
+	defer os.RemoveAll(xrm.Cfg.OVirtStoreDir)
 
 	request := "http://" + xrm.Cfg.Listen + "/ovirt/generate/test%2F..%2F..%2F..%2FetcTEST"
 	// fileName := path.Join(ovirtStoreDir, "test/disaster_recovery_vars.yml")
